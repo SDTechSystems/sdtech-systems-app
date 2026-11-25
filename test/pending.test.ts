@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handlePending } from "../worker/api/pending";
 import { handleReminders } from "../worker/api/reminders";
+import { handleMeetings } from "../worker/api/meetings";
 import { handleClients } from "../worker/api/clients";
 import worker from "../worker/index";
 import type { Pending, PendingItem } from "../shared/types";
@@ -128,5 +129,20 @@ describe("pending", () => {
       await env.DB.prepare("UPDATE projects SET status = ? WHERE id = ?").bind(status, projectId).run();
       expect(kinds(await pending(env), "payment")).toHaveLength(expected);
     }
+  });
+
+  it("lists today's and tomorrow's meetings, not later or cancelled ones", async () => {
+    const env = await makeEnv();
+    const c = await newClient(env);
+    const add = (start: string, title: string) =>
+      handleMeetings(jsonRequest("POST", `${B}/meetings`, { clientId: c.id, title, start }), env, owner, ["meetings"]);
+    await add("2026-12-10T19:30", "Hoy en la noche");
+    await add("2026-12-11T09:00", "Mañana");
+    await add("2026-12-12T09:00", "Pasado mañana");
+    const cancelled = ((await (await add("2026-12-10T08:00", "Cancelada")).json()) as { meeting: { id: string } }).meeting.id;
+    await handleMeetings(jsonRequest("DELETE", `${B}/meetings/${cancelled}`), env, owner, ["meetings", cancelled]);
+    const p = await pending(env);
+    expect(p.meetings.map((m) => m.title)).toEqual(["Hoy en la noche", "Mañana"]);
+    expect(p.google).toEqual({ status: "disconnected" });
   });
 });

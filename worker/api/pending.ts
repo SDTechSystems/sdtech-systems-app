@@ -4,6 +4,8 @@ import type { Handler } from "../auth/session";
 import { error, json, now, readJson } from "../http";
 import { PORTAL_ACTOR } from "../portal/api";
 import { getSettings } from "../settings";
+import { googleStatus } from "../google/oauth";
+import { listMeetings } from "./meetings";
 
 const ORDER: Record<Urgency, number> = { overdue: 0, today: 1, soon: 2, info: 3 };
 const urgencyOf = (date: string, today: string): Urgency => (date < today ? "overdue" : date === today ? "today" : "soon");
@@ -151,6 +153,8 @@ export const handlePending: Handler = async (request, env, session, path) => {
   }
 
   items.sort((a, b) => ORDER[a.urgency] - ORDER[b.urgency] || (a.date ?? "9999").localeCompare(b.date ?? "9999"));
-  const result: Pending = { today, items, meetings: [], subscriptions: [] };
+  const meetings = await listMeetings(db, { fromDate: today, toDate: addDays(today, 1) });
+  const google = { status: (await googleStatus(db)).status };
+  const result: Pending = { today, items, meetings, subscriptions: [], google };
   return json(result);
 };

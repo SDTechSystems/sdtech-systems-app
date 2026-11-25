@@ -34,3 +34,12 @@ export function addMinutesBogota(instant: string, minutes: number): string {
 }
 
 export const isLocalDateTime = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}:00-05:00`));
+
+const meetingDay = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", weekday: "long", day: "numeric", month: "long" });
+const meetingTime12 = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", hour: "numeric", minute: "2-digit", hour12: true });
+const meetingTime24 = new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+
+/** "miércoles, 10 de diciembre" sin la coma → "miércoles 10 de diciembre". */
+export const meetingDayLabel = (instant: string): string => meetingDay.format(new Date(instant)).replace(",", "");
+export const meetingTimeLabel = (instant: string): string => meetingTime12.format(new Date(instant)).replace(/\s/g, " ");
+export const meetingTime24Label = (instant: string): string => meetingTime24.format(new Date(instant));

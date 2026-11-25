@@ -3,6 +3,8 @@ import type { Env } from "../env";
 import { error, json, now, readJson } from "../http";
 import { loadPayments } from "../payments/repo";
 import { listProjects } from "../projects/repo";
+import { listMeetings } from "../api/meetings";
+import { todayBogota } from "../../shared/dates";
 import { approveQuote } from "../quotes/approve";
 import { listQuotes, loadQuote } from "../quotes/repo";
 import { getSettings } from "../settings";
@@ -38,7 +40,8 @@ export async function handlePortalPage(env: Env, token: string, sub: string[]): 
 
   const projects = await listProjects(env.DB, { clientId: client.id, statuses: ["active", "paused", "delivered"] }, true);
   const payments = Object.fromEntries(await Promise.all(projects.map(async (p) => [p.id, await loadPayments(env.DB, p.id)] as const)));
-  return renderPortal({ token, client, quotes, projects, payments, settings });
+  const meetings = await listMeetings(env.DB, { clientId: client.id, fromDate: todayBogota() });
+  return renderPortal({ token, client, quotes, projects, payments, meetings, settings });
 }
 
 /** POST /api/portal/:token/quotes/:id/(approve|reject) */

@@ -182,8 +182,9 @@ export interface PendingItem {
 export interface Pending {
   today: string;
   items: PendingItem[];
-  meetings: never[];
+  meetings: Meeting[];
   subscriptions: never[];
+  google: { status: "disconnected" | "ok" | "reconnect" };
 }
 
 export interface Meeting {

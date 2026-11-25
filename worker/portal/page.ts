@@ -1,7 +1,7 @@
-import { dayOf, formatLongDate } from "../../shared/dates";
+import { dayOf, formatLongDate, meetingDayLabel, meetingTimeLabel } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
 import { waLink } from "../../shared/phone";
-import type { PaymentSummary, Project, Quote, Settings } from "../../shared/types";
+import type { Meeting, PaymentSummary, Project, Quote, Settings } from "../../shared/types";
 import { esc, page } from "./html";
 
 export interface PortalData {
@@ -10,6 +10,7 @@ export interface PortalData {
   quotes: Quote[];
   projects: Project[];
   payments: Record<string, PaymentSummary>;
+  meetings: Meeting[];
   settings: Settings;
 }
 
@@ -161,7 +162,14 @@ export function renderPortal(d: PortalData): Response {
   const first = d.client.name.split(" ")[0];
   const company = d.settings.company;
   const phoneDigits = company.phone.replace(/\D/g, "");
+  const meetingsHtml = d.meetings
+    .map(
+      (m) =>
+        `<div class="card"><div class="row"><div><strong>${esc(m.title)}</strong><div class="muted">${esc(meetingDayLabel(m.startAt))} · ${esc(meetingTimeLabel(m.startAt))} · ${m.durationMin} min</div></div><span class="badge">Agendada</span></div>${m.meetUrl ? `<div class="actions"><a class="btn primary" href="${esc(m.meetUrl)}" target="_blank" rel="noopener">Entrar a la reunión</a></div>` : ""}</div>`,
+    )
+    .join("");
   const sections = [
+    d.meetings.length ? { title: "Próximas reuniones", html: meetingsHtml } : null,
     d.projects.length ? { title: "Tus proyectos", html: d.projects.map((p) => projectCard(p, d.payments[p.id], d.settings)).join("") } : null,
     d.quotes.length ? { title: "Tus cotizaciones", html: d.quotes.map((q) => quoteCard(q, d.token)).join("") } : null,
   ].filter((s): s is { title: string; html: string } => !!s);

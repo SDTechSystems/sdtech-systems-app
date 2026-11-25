@@ -165,4 +165,17 @@ describe("client portal", () => {
     for (const text of ["Pagado", "$ 200.000", "Saldo", "$ 690.000", "Anticipo", "Llave Bre-B 3058147293 · Davibank", "Copiar llave"]) expect(html).toContain(text);
     expect(html).not.toContain("transferencia de la mamá");
   });
+
+  it("shows the client's upcoming meetings with the Meet link and Bogotá time", async () => {
+    const env = await makeEnv();
+    const a = await newClient(env, "Ana Pérez");
+    const b = await newClient(env, "Bruno Ruiz");
+    await env.DB.prepare("INSERT INTO meetings (id, client_id, title, start_at, duration_min, meet_url, status, created_at, updated_at) VALUES ('m1', ?, 'Revisión de maqueta', '2099-12-10T19:30:00-05:00', 30, 'https://meet.google.com/abc-defg-hij', 'scheduled', '', '')").bind(a.id).run();
+    const htmlA = await (await fetchPortal(env, await portalUrl(env, a.id))).text();
+    expect(htmlA).toContain("Revisión de maqueta");
+    expect(htmlA).toContain("7:30");
+    expect(htmlA).toContain("https://meet.google.com/abc-defg-hij");
+    const htmlB = await (await fetchPortal(env, await portalUrl(env, b.id))).text();
+    expect(htmlB).not.toContain("Revisión de maqueta");
+  });
 });
