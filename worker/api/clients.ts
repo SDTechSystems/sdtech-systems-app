@@ -4,6 +4,7 @@ import type { ActivityEntry, Client } from "../../shared/types";
 import { logActivity } from "../activity";
 import type { Handler } from "../auth/session";
 import { error, json, now, readJson } from "../http";
+import { handlePortalLink } from "./portal-links";
 
 interface ClientRow {
   id: string;
@@ -75,6 +76,7 @@ async function load(db: D1Database, id: string): Promise<Client | null> {
 }
 
 export const handleClients: Handler = async (request, env, session, path) => {
+  if (path[2] === "portal-link") return handlePortalLink(request, env, session, path);
   const db = env.DB;
   const id = path[1] ? decodeURIComponent(path[1]) : null;
 

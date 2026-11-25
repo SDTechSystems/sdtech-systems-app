@@ -9,4 +9,6 @@ export interface Env {
   ACCESS_AUD?: string;
   /** Solo en desarrollo (.dev.vars): entra como este correo sin Access. */
   DEV_AUTH_EMAIL?: string;
+  /** Límite de peticiones del portal (binding ratelimits). No existe en pruebas. */
+  PORTAL_LIMIT?: { limit(options: { key: string }): Promise<{ success: boolean }> };
 }

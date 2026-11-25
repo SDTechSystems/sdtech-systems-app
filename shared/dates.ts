@@ -13,3 +13,8 @@ export function addDays(date: string, n: number): string {
 export const isExpired = (validUntil: string, today: string): boolean => today > validUntil;
 
 export const isDate = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T12:00:00Z`));
+
+const longDate = new Intl.DateTimeFormat("es-CO", { dateStyle: "long", timeZone: "UTC" });
+
+/** "2026-12-25" → "25 de diciembre de 2026". */
+export const formatLongDate = (date: string): string => longDate.format(new Date(`${date}T12:00:00Z`));

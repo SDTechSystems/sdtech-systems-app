@@ -9,7 +9,8 @@ import { authenticate, type Handler } from "./auth/session";
 import { ensureSchema } from "./db/migrate";
 import type { Env } from "./env";
 import { error } from "./http";
-import { renderPortalPlaceholder } from "./portal/placeholder";
+import { handlePortalApi, handlePortalPage } from "./portal/api";
+import { homePage } from "./portal/html";
 
 const PORTAL_HOST = "clientes.sdtechsystems.dev";
 
@@ -28,11 +29,7 @@ export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
-    if (url.hostname === PORTAL_HOST) {
-      if (url.pathname.startsWith("/api/")) return error(404, "not_found");
-      if (url.pathname.startsWith("/brand/")) return env.ASSETS.fetch(request);
-      return renderPortalPlaceholder();
-    }
+    if (url.hostname === PORTAL_HOST) return handlePortalHost(request, env, url);
 
     if (url.pathname.startsWith("/api/admin/")) {
       await ensureSchema(env.DB);
@@ -48,3 +45,21 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
+
+async function handlePortalHost(request: Request, env: Env, url: URL): Promise<Response> {
+  const p = url.pathname;
+  if (p.startsWith("/brand/") || p.startsWith("/fonts/") || p === "/favicon.ico") return env.ASSETS.fetch(request);
+  const isPortal = p.startsWith("/c/") || p.startsWith("/api/portal/");
+  if (!isPortal) return p.startsWith("/api/") ? error(404, "not_found") : homePage();
+
+  if (env.PORTAL_LIMIT) {
+    const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
+    const { success } = await env.PORTAL_LIMIT.limit({ key: ip });
+    if (!success) return error(429, "too_many_requests");
+  }
+  await ensureSchema(env.DB);
+  const parts = p.split("/").filter(Boolean);
+  if (parts[0] === "api") return handlePortalApi(request, env, parts.slice(2));
+  if (request.method !== "GET") return error(405, "method_not_allowed");
+  return handlePortalPage(env, parts[1] ?? "", parts.slice(2));
+}
