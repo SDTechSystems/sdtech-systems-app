@@ -14,6 +14,8 @@ interface ProjectRow {
   total: number | null;
   currency: Currency | null;
   advance_percent: number | null;
+  delivery_url: string | null;
+  delivery_released: number;
   created_at: string;
 }
 
@@ -29,7 +31,7 @@ interface PhaseRow {
   done_at: string | null;
 }
 
-const SELECT = `SELECT p.id, p.client_id, c.name AS client_name, p.quote_id, p.service, p.title, p.description, p.status, p.start_date, p.due_date, p.total, p.currency, p.advance_percent, p.created_at FROM projects p JOIN clients c ON c.id = p.client_id`;
+const SELECT = `SELECT p.id, p.client_id, c.name AS client_name, p.quote_id, p.service, p.title, p.description, p.status, p.start_date, p.due_date, p.total, p.currency, p.advance_percent, p.delivery_url, p.delivery_released, p.created_at FROM projects p JOIN clients c ON c.id = p.client_id`;
 
 const toPhase = (r: PhaseRow): Phase => ({
   id: r.id,
@@ -66,6 +68,8 @@ function toProject(r: ProjectRow, phases: Phase[], includeMoney: boolean): Proje
     advancePercent: includeMoney ? r.advance_percent : null,
     progress: progressOf(phases),
     phases,
+    deliveryUrl: includeMoney ? r.delivery_url : null,
+    deliveryReleased: r.delivery_released === 1,
     createdAt: r.created_at,
   };
 }

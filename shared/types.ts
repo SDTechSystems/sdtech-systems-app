@@ -122,6 +122,8 @@ export interface Project {
   advancePercent: number | null;
   progress: number;
   phases: Phase[];
+  deliveryUrl: string | null;
+  deliveryReleased: boolean;
   createdAt: string;
 }
 

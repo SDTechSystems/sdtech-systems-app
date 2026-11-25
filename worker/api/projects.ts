@@ -22,6 +22,7 @@ interface ProjectInput {
   dueDate?: string | null;
   total?: number;
   currency?: Currency;
+  deliveryUrl?: string | null;
 }
 
 const activityOf = async (db: D1Database, type: string, id: string) =>
@@ -85,8 +86,9 @@ export const handleProjects: Handler = async (request, env, session, path) => {
   if (request.method === "PATCH" && !sub) {
     const body = await readJson<ProjectInput>(request);
     if (body instanceof Response) return body;
-    if (!money && (body.total !== undefined || body.currency !== undefined)) return error(403, "forbidden");
+    if (!money && (body.total !== undefined || body.currency !== undefined || body.deliveryUrl !== undefined)) return error(403, "forbidden");
     if (body.dueDate != null && !isDate(body.dueDate)) return error(400, "invalid_date");
+    if (body.deliveryUrl != null && !/^https:\/\/\S+$/.test(body.deliveryUrl.trim())) return error(400, "invalid_url");
     if (body.status !== undefined && !STATUSES.includes(body.status)) return error(400, "invalid_status");
     if (body.total !== undefined && (!Number.isInteger(body.total) || body.total < 0)) return error(400, "invalid_total");
     const title = body.title !== undefined ? body.title.trim() : project.title;
@@ -98,12 +100,26 @@ export const handleProjects: Handler = async (request, env, session, path) => {
       dueDate: body.dueDate !== undefined ? body.dueDate : project.dueDate,
       total: body.total !== undefined ? body.total : project.total,
       currency: body.currency ?? project.currency ?? (body.total !== undefined ? "COP" : null),
+      deliveryUrl: body.deliveryUrl !== undefined ? body.deliveryUrl?.trim() || null : project.deliveryUrl,
     };
     await db.batch([
       db
-        .prepare("UPDATE projects SET title = ?, description = ?, status = ?, due_date = ?, total = ?, currency = ?, updated_at = ? WHERE id = ?")
-        .bind(next.title, next.description, next.status, next.dueDate, next.total, next.currency, now(), id),
+        .prepare("UPDATE projects SET title = ?, description = ?, status = ?, due_date = ?, total = ?, currency = ?, delivery_url = ?, delivery_released = CASE WHEN ? IS NULL THEN 0 ELSE delivery_released END, updated_at = ? WHERE id = ?")
+        .bind(next.title, next.description, next.status, next.dueDate, next.total, next.currency, next.deliveryUrl, next.deliveryUrl, now(), id),
       logActivity(db, session.email, "project", id, "update", { fields: Object.keys(body) }),
+    ]);
+    return json({ project: await loadProject(db, id, money) });
+  }
+
+  if (request.method === "POST" && sub === "delivery") {
+    if (!money) return error(403, "forbidden");
+    const body = await readJson<{ release?: boolean }>(request);
+    if (body instanceof Response) return body;
+    const release = body.release === true;
+    if (release && !project.deliveryUrl) return error(400, "delivery_url_required");
+    await db.batch([
+      db.prepare("UPDATE projects SET delivery_released = ?, updated_at = ? WHERE id = ?").bind(release ? 1 : 0, now(), id),
+      logActivity(db, session.email, "project", id, release ? "delivery_released" : "delivery_withdrawn"),
     ]);
     return json({ project: await loadProject(db, id, money) });
   }

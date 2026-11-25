@@ -163,7 +163,7 @@ ${approved.length ? `<div class="pay"><h3>Cambios aprobados</h3><ul class="plans
 
 function projectCard(p: Project, pay: PaymentSummary | undefined, settings: Settings, changes: ChangeRequest[] = [], token = ""): string {
   return `<div class="card"><div class="row"><div><strong>${esc(p.title)}</strong><div class="muted">${p.dueDate ? `Entrega estimada: ${esc(formatLongDate(p.dueDate))}` : "Fecha de entrega por definir"}</div></div><span class="badge${p.status === "delivered" ? " ok" : p.status === "active" ? "" : " off"}">${PROJECT_STATUS[p.status]}</span></div>
-<div class="bar" role="progressbar" aria-valuenow="${p.progress}" aria-valuemin="0" aria-valuemax="100"><span style="width:${p.progress}%"></span></div><div class="muted">${p.progress}% completado</div>${phaseList(p)}${pay && pay.total > 0 ? paymentsBlock(pay, settings) : ""}${p.status === "cancelled" ? "" : changesBlock(p, changes, token, pay?.currency ?? "COP")}</div>`;
+<div class="bar" role="progressbar" aria-valuenow="${p.progress}" aria-valuemin="0" aria-valuemax="100"><span style="width:${p.progress}%"></span></div><div class="muted">${p.progress}% completado</div>${phaseList(p)}${p.deliveryReleased && p.deliveryUrl ? `<div class="key"><span>Tu entrega está lista 🎉</span><a class="btn primary" href="${esc(p.deliveryUrl)}" target="_blank" rel="noopener">Descargar entrega</a></div>` : ""}${pay && pay.total > 0 ? paymentsBlock(pay, settings) : ""}${p.status === "cancelled" ? "" : changesBlock(p, changes, token, pay?.currency ?? "COP")}</div>`;
 }
 
 function quoteCard(q: Quote, base: string): string {
