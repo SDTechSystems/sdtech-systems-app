@@ -27,4 +27,21 @@ export const MIGRATIONS: Migration[] = [
       ...seedCatalog,
     ],
   },
+  {
+    id: "0002_quotes_projects",
+    statements: [
+      `CREATE TABLE IF NOT EXISTS counters (name TEXT PRIMARY KEY, value INTEGER NOT NULL)`,
+      `INSERT OR IGNORE INTO counters (name, value) VALUES ('quote', 0), ('invoice', 0)`,
+      `CREATE TABLE IF NOT EXISTS quotes (id TEXT PRIMARY KEY, number TEXT NOT NULL UNIQUE, client_id TEXT NOT NULL, service TEXT NOT NULL, currency TEXT NOT NULL DEFAULT 'COP', status TEXT NOT NULL CHECK(status IN ('draft','sent','approved','rejected')), advance_percent INTEGER NOT NULL DEFAULT 50, notes TEXT NOT NULL DEFAULT '', conditions TEXT NOT NULL DEFAULT '', issued_at TEXT, valid_until TEXT, approved_at TEXT, approved_by TEXT, approved_name TEXT, client_comment TEXT, owner_note TEXT, approval_snapshot TEXT, project_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`,
+      `CREATE TABLE IF NOT EXISTS quote_items (id TEXT PRIMARY KEY, quote_id TEXT NOT NULL, position INTEGER NOT NULL, title TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', quantity INTEGER NOT NULL CHECK(quantity >= 1), unit_price INTEGER NOT NULL CHECK(unit_price >= 0), catalog_item_id TEXT)`,
+      `CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, quote_id TEXT, service TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','delivered','cancelled')), start_date TEXT, due_date TEXT, total INTEGER, currency TEXT, advance_percent INTEGER, delivery_url TEXT, delivery_released INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`,
+      `CREATE TABLE IF NOT EXISTS phases (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, parent_id TEXT, position INTEGER NOT NULL, name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','in_progress','done')), due_date TEXT, client_note TEXT, done_at TEXT, created_at TEXT NOT NULL)`,
+      `CREATE TABLE IF NOT EXISTS portal_tokens (token TEXT PRIMARY KEY, client_id TEXT NOT NULL, created_at TEXT NOT NULL, revoked_at TEXT)`,
+      `CREATE INDEX IF NOT EXISTS idx_quotes_client ON quotes (client_id, created_at)`,
+      `CREATE INDEX IF NOT EXISTS idx_quote_items_quote ON quote_items (quote_id, position)`,
+      `CREATE INDEX IF NOT EXISTS idx_projects_client ON projects (client_id, status)`,
+      `CREATE INDEX IF NOT EXISTS idx_phases_project ON phases (project_id, position)`,
+      `CREATE INDEX IF NOT EXISTS idx_portal_tokens_client ON portal_tokens (client_id)`,
+    ],
+  },
 ];

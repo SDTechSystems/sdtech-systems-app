@@ -43,3 +43,80 @@ export interface ActivityEntry {
   action: string;
   detail: unknown;
 }
+
+export interface Settings {
+  company: { name: string; phone: string; email: string; website: string };
+  payment: { brebKey: string; bank: string; usdText: string };
+  quotes: { validityDays: number; advancePercent: number; conditions: string };
+  phaseTemplates: Record<Service, string[]>;
+}
+
+export type QuoteStatus = "draft" | "sent" | "approved" | "rejected" | "expired";
+
+export interface QuoteItem {
+  id: string;
+  title: string;
+  detail: string;
+  quantity: number;
+  unitPrice: number;
+  catalogItemId: string | null;
+}
+
+export interface Quote {
+  id: string;
+  number: string;
+  clientId: string;
+  clientName: string;
+  service: Service;
+  currency: Currency;
+  status: QuoteStatus;
+  items: QuoteItem[];
+  total: number;
+  advancePercent: number;
+  advanceAmount: number;
+  notes: string;
+  conditions: string;
+  issuedAt: string | null;
+  validUntil: string | null;
+  approvedAt: string | null;
+  approvedBy: "owner" | "client" | null;
+  approvedName: string | null;
+  clientComment: string | null;
+  projectId: string | null;
+  createdAt: string;
+}
+
+export type PhaseStatus = "pending" | "in_progress" | "done";
+
+export interface Phase {
+  id: string;
+  projectId: string;
+  parentId: string | null;
+  position: number;
+  name: string;
+  status: PhaseStatus;
+  dueDate: string | null;
+  clientNote: string | null;
+  doneAt: string | null;
+}
+
+export type ProjectStatus = "active" | "paused" | "delivered" | "cancelled";
+
+export interface Project {
+  id: string;
+  clientId: string;
+  clientName: string;
+  quoteId: string | null;
+  service: Service;
+  title: string;
+  description: string;
+  status: ProjectStatus;
+  startDate: string | null;
+  dueDate: string | null;
+  total: number | null;
+  currency: Currency | null;
+  advancePercent: number | null;
+  progress: number;
+  phases: Phase[];
+  createdAt: string;
+}
