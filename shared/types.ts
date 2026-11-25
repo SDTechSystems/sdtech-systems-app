@@ -52,6 +52,7 @@ export interface Settings {
   phaseTemplates: Record<Service, string[]>;
   templates: Record<TemplateKey, string>;
   alerts: { staleDays: number; dueSoonDays: number; quoteExpiringDays: number };
+  calendar: { eventHour: number };
 }
 
 export type QuoteStatus = "draft" | "sent" | "approved" | "rejected" | "expired";

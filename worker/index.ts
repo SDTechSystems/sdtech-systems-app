@@ -14,6 +14,7 @@ import { authenticate, type Handler } from "./auth/session";
 import { ensureSchema } from "./db/migrate";
 import type { Env } from "./env";
 import { error } from "./http";
+import { syncCalendar } from "./google/sync";
 import { handlePortalApi, handlePortalPage } from "./portal/api";
 import { homePage } from "./portal/html";
 
@@ -36,8 +37,20 @@ const ADMIN: Record<string, Handler> = {
   meetings: handleMeetings,
 };
 
+/** Cambios del panel que mueven fechas del calendario. */
+const CALENDAR_SOURCES = new Set(["projects", "phases", "payment-plans", "payments", "quotes"]);
+
 export default {
-  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(
+      (async () => {
+        await ensureSchema(env.DB);
+        await syncCalendar(env);
+      })().catch(() => undefined),
+    );
+  },
+
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.hostname === PORTAL_HOST) return handlePortalHost(request, env, url);
@@ -49,7 +62,9 @@ export default {
       const path = url.pathname.slice("/api/admin/".length).split("/").filter(Boolean);
       const handler = ADMIN[path[0] ?? ""];
       if (!handler) return error(404, "not_found");
-      return handler(request, env, session, path);
+      const response = await handler(request, env, session, path);
+      if (request.method !== "GET" && response.ok && CALENDAR_SOURCES.has(path[0])) ctx.waitUntil(syncCalendar(env).catch(() => undefined));
+      return response;
     }
 
     if (url.pathname === "/api/google/connect" || url.pathname === "/api/google/callback") {

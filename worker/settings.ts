@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: Settings = {
   phaseTemplates: DEFAULT_PHASE_TEMPLATES,
   templates: DEFAULT_TEMPLATES,
   alerts: { staleDays: 7, dueSoonDays: 7, quoteExpiringDays: 5 },
+  calendar: { eventHour: 9 },
 };
 
 const SERVICES: Service[] = ["web", "marca", "software", "general"];
@@ -37,6 +38,7 @@ export function mergeSettings(base: Settings, patch: Partial<Settings>): Setting
     phaseTemplates: { ...base.phaseTemplates, ...patch.phaseTemplates },
     templates: { ...base.templates, ...patch.templates },
     alerts: { ...base.alerts, ...patch.alerts },
+    calendar: { ...base.calendar, ...patch.calendar },
   };
 }
 
@@ -56,6 +58,7 @@ export function validSettings(s: Settings): boolean {
     if (typeof t !== "string" || !t.trim()) return false;
   }
   for (const v of Object.values(s.alerts)) if (!Number.isInteger(v) || v < 1 || v > 90) return false;
+  if (!Number.isInteger(s.calendar.eventHour) || s.calendar.eventHour < 0 || s.calendar.eventHour > 22) return false;
   return typeof s.quotes.conditions === "string";
 }
 
