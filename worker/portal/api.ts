@@ -12,6 +12,8 @@ import { getSettings } from "../settings";
 import { invalidLinkPage } from "./html";
 import { renderPortal } from "./page";
 import { renderQuoteDocument } from "./quote-doc";
+import { renderInvoiceDocument } from "./invoice-doc";
+import { findInvoice, listInvoices } from "../invoices/repo";
 import { findClientByToken, portalUrl } from "./tokens";
 
 const PORTAL_QUOTES = ["sent", "approved", "rejected", "expired"] as const;
@@ -37,13 +39,19 @@ export async function handlePortalPage(env: Env, token: string, sub: string[]): 
     }>();
     return renderQuoteDocument({ quote, client: full!, settings, portalUrl: portalUrl(token) });
   }
+  if (sub[0] === "factura" && sub[1]) {
+    const inv = await findInvoice(env.DB, "number", decodeURIComponent(sub[1]));
+    if (!inv || inv.clientId !== client.id) return invalidLinkPage();
+    return renderInvoiceDocument(inv, settings, portalUrl(token));
+  }
   if (sub.length) return invalidLinkPage();
 
   const projects = await listProjects(env.DB, { clientId: client.id, statuses: ["active", "paused", "delivered"] }, true);
   const payments = Object.fromEntries(await Promise.all(projects.map(async (p) => [p.id, await loadPayments(env.DB, p.id)] as const)));
   const changes = Object.fromEntries(await Promise.all(projects.map(async (p) => [p.id, await listChanges(env.DB, p.id)] as const)));
   const meetings = await listMeetings(env.DB, { clientId: client.id, fromDate: todayBogota() });
-  return renderPortal({ token, client, quotes, projects, payments, changes, meetings, settings });
+  const invoices = await listInvoices(env.DB, { clientId: client.id });
+  return renderPortal({ token, client, quotes, projects, payments, changes, meetings, invoices, settings });
 }
 
 /** POST /api/portal/:token/(quotes/:id/(approve|reject) | projects/:id/adjustments | changes/:id/(approve|reject)) */

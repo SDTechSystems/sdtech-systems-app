@@ -1,7 +1,7 @@
 import { dayOf, formatLongDate, meetingDayLabel, meetingTimeLabel } from "../../shared/dates";
 import { formatMoney, signedMoney } from "../../shared/money";
 import { waLink } from "../../shared/phone";
-import type { ChangeRequest, Meeting, PaymentSummary, Project, Quote, Settings } from "../../shared/types";
+import type { ChangeRequest, Invoice, Meeting, PaymentSummary, Project, Quote, Settings } from "../../shared/types";
 import { esc, page } from "./html";
 
 export interface PortalData {
@@ -12,6 +12,7 @@ export interface PortalData {
   payments: Record<string, PaymentSummary>;
   changes: Record<string, ChangeRequest[]>;
   meetings: Meeting[];
+  invoices: Invoice[];
   settings: Settings;
 }
 
@@ -200,6 +201,17 @@ export function renderPortal(d: PortalData): Response {
     d.meetings.length ? { title: "Próximas reuniones", html: meetingsHtml } : null,
     d.projects.length ? { title: "Tus proyectos", html: d.projects.map((p) => projectCard(p, d.payments[p.id], d.settings, d.changes[p.id], d.token)).join("") } : null,
     d.quotes.length ? { title: "Tus cotizaciones", html: d.quotes.map((q) => quoteCard(q, d.token)).join("") } : null,
+    d.invoices.length
+      ? {
+          title: "Tus facturas",
+          html: d.invoices
+            .map(
+              (i) =>
+                `<div class="card"><div class="row"><div><strong>${esc(i.number)}</strong><div class="muted">${esc(i.projectTitle)} · ${esc(formatLongDate(dayOf(i.issuedAt)))}</div></div><span class="badge${i.voided ? " off" : " ok"}">${i.voided ? "Anulada" : "Emitida"}</span></div><div class="row" style="margin-top:8px;align-items:center"><span class="amount">${esc(formatMoney(i.total, i.currency))}</span><a class="btn link" href="/c/${esc(d.token)}/factura/${esc(i.number)}">Ver factura</a></div></div>`,
+            )
+            .join(""),
+        }
+      : null,
   ].filter((s): s is { title: string; html: string } => !!s);
   const body = `<header><img src="/brand/logo-white.svg" alt="SD Tech Systems"><span>SEGUIMIENTO</span></header><main class="arrive">
 <p class="eyebrow">Tu página de seguimiento</p>

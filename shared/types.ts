@@ -247,3 +247,29 @@ export interface Subscription {
   status: SubscriptionStatus;
   lastPaidOn: string | null;
 }
+
+export interface InvoiceLine {
+  title: string;
+  detail: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface Invoice {
+  id: string;
+  number: string;
+  projectId: string;
+  clientId: string;
+  issuedAt: string;
+  currency: Currency;
+  total: number;
+  paid: number;
+  balance: number;
+  verifyCode: string;
+  voided: boolean;
+  projectTitle: string;
+  lines: InvoiceLine[];
+  payments: { paidOn: string; method: PaymentMethod; amount: number }[];
+  client: { name: string; company: string | null; document: string | null; city: string | null; phone: string | null; email: string | null };
+}
