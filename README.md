@@ -51,7 +51,7 @@ En el primer despliegue Cloudflare crea solo:
 - la base D1 `sdtech-systems`;
 - los dominios `panel.sdtechsystems.dev` y `clientes.sdtechsystems.dev`.
 
-Si el despliegue se queja de la base de datos, créala a mano en **Almacenamiento y bases de datos → D1** con el nombre `sdtech-systems`, y agrega su `database_id` en `wrangler.jsonc`.
+La base D1 `sdtech-systems` ya existe y su `database_id` está en `wrangler.jsonc`.
 
 ### 2. Proteger el panel con Cloudflare Access
 
