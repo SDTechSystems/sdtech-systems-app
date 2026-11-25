@@ -10,6 +10,11 @@ import ClientDetail from "@/pages/ClientDetail";
 import Clients from "@/pages/Clients";
 import Home from "@/pages/Home";
 import NoAccess from "@/pages/NoAccess";
+import ProjectDetail from "@/pages/ProjectDetail";
+import Projects from "@/pages/Projects";
+import QuoteDetail from "@/pages/QuoteDetail";
+import QuoteEditor from "@/pages/QuoteEditor";
+import Quotes from "@/pages/Quotes";
 import Settings from "@/pages/Settings";
 
 const queryClient = new QueryClient({
@@ -57,6 +62,12 @@ export default function App() {
               <Route index element={<Home />} />
               <Route path="clientes" element={<Clients />} />
               <Route path="clientes/:id" element={<ClientDetail />} />
+              <Route path="cotizaciones" element={<OwnerOnly><Quotes /></OwnerOnly>} />
+              <Route path="cotizaciones/nueva" element={<OwnerOnly><QuoteEditor /></OwnerOnly>} />
+              <Route path="cotizaciones/:id" element={<OwnerOnly><QuoteDetail /></OwnerOnly>} />
+              <Route path="cotizaciones/:id/editar" element={<OwnerOnly><QuoteEditor /></OwnerOnly>} />
+              <Route path="proyectos" element={<Projects />} />
+              <Route path="proyectos/:id" element={<ProjectDetail />} />
               <Route path="catalogo" element={<OwnerOnly><Catalog /></OwnerOnly>} />
               <Route path="ajustes" element={<OwnerOnly><Settings /></OwnerOnly>} />
               <Route path="*" element={<Home />} />

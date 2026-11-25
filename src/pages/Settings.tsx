@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PhaseTemplatesCard, SettingsBusiness } from "@/components/SettingsBusiness";
 import { apiGet, apiSend } from "@/lib/api";
 import { errorMessage } from "@/lib/labels";
 
@@ -38,6 +39,9 @@ export default function Settings() {
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-bold">Ajustes</h1>
+
+      <SettingsBusiness />
+      <PhaseTemplatesCard />
 
       <Card>
         <CardHeader>

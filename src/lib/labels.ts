@@ -1,5 +1,6 @@
+import { formatLongDate } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
-import type { Billing, CatalogItem, Service } from "../../shared/types";
+import type { Billing, CatalogItem, PhaseStatus, ProjectStatus, Quote, QuoteStatus, Service } from "../../shared/types";
 import { ApiError } from "./api";
 
 export const SERVICE_LABEL: Record<Service, string> = {
@@ -24,6 +25,15 @@ const ERRORS: Record<string, string> = {
   invalid_price: "Revisa el precio",
   invalid_service: "Elige un servicio",
   already_exists: "Ese correo ya tiene acceso",
+  items_required: "Agrega al menos un ítem",
+  invalid_items: "Revisa los ítems: cada uno necesita nombre, cantidad y precio",
+  invalid_client: "Escoge un cliente",
+  not_editable: "Esta cotización ya se envió; ya no se puede editar",
+  not_approvable: "Esta cotización ya no se puede aprobar (vencida o ya aprobada)",
+  not_renewable: "Solo se renuevan cotizaciones vencidas o rechazadas",
+  invalid_date: "Revisa la fecha",
+  invalid_settings: "Revisa los ajustes: anticipo entre 0 y 100 y vigencia entre 1 y 365 días",
+  title_required: "Escribe el nombre del proyecto",
   cannot_remove_owner: "No se puede quitar al dueño",
   forbidden: "No tienes permiso para esto",
 };
@@ -35,3 +45,23 @@ export function errorMessage(e: unknown): string {
 
 export const formatDateTime = (iso: string): string =>
   new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
+
+export const quoteStatusLabel: Record<QuoteStatus, string> = {
+  draft: "Borrador",
+  sent: "Enviada",
+  approved: "Aprobada",
+  rejected: "Rechazada",
+  expired: "Vencida",
+};
+
+export const projectStatusLabel: Record<ProjectStatus, string> = { active: "En curso", paused: "En pausa", delivered: "Entregado", cancelled: "Cancelado" };
+export const phaseStatusLabel: Record<PhaseStatus, string> = { pending: "Pendiente", in_progress: "En curso", done: "Hecha" };
+
+export const firstName = (name: string): string => name.trim().split(/\s+/)[0];
+
+export function quoteWhatsAppText(q: Pick<Quote, "number" | "total" | "currency" | "validUntil">, clientName: string, portalUrl: string): string {
+  const until = q.validUntil ? ` Es válida hasta el ${formatLongDate(q.validUntil)}.` : "";
+  return `Hola ${firstName(clientName)}, te comparto la cotización ${q.number} por ${formatMoney(q.total, q.currency)}. Puedes verla y aprobarla aquí: ${portalUrl}.${until}`;
+}
+
+export const formatDate = (date: string): string => formatLongDate(date);

@@ -1,11 +1,17 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { Archive, ArchiveRestore, ArrowLeft, MessageCircle, Pencil } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, FilePlus, MessageCircle, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { waLink } from "../../shared/phone";
 import type { ActivityEntry, Client } from "../../shared/types";
 import { ClientForm } from "@/components/ClientForm";
+import { PortalLinkCard } from "@/components/PortalLinkCard";
+import { QuoteBadge } from "@/components/StatusBadge";
+import { ProjectCard } from "@/pages/Projects";
+import { formatMoney } from "../../shared/money";
+import type { Project, Quote } from "../../shared/types";
+import { useMe } from "@/lib/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +20,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiGet, apiSend } from "@/lib/api";
 import { errorMessage, formatDateTime } from "@/lib/labels";
 
-const ACTION_LABEL: Record<string, string> = { create: "Creó el cliente", update: "Actualizó los datos" };
+const ACTION_LABEL: Record<string, string> = {
+  create: "Creó el cliente",
+  update: "Actualizó los datos",
+  portal_link_created: "Creó el link de seguimiento",
+  portal_link_regenerated: "Cambió el link de seguimiento",
+};
 
 function Row({ label, value }: { label: string; value: string | null }) {
   if (!value) return null;
@@ -30,6 +41,14 @@ export default function ClientDetail() {
   const { id = "" } = useParams();
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
+  const { data: me } = useMe();
+  const owner = me?.role === "owner";
+  const quotes = useQuery({
+    queryKey: ["quotes", "client", id],
+    queryFn: () => apiGet<{ quotes: Quote[] }>(`/api/admin/quotes?clientId=${id}`),
+    enabled: owner,
+  });
+  const projects = useQuery({ queryKey: ["projects", "client", id], queryFn: () => apiGet<{ projects: Project[] }>(`/api/admin/projects?clientId=${id}&status=all`) });
   const { data, isLoading, error } = useQuery({
     queryKey: ["client", id],
     queryFn: () => apiGet<{ client: Client; activity: ActivityEntry[] }>(`/api/admin/clients/${id}`),
@@ -95,6 +114,49 @@ export default function ClientDetail() {
           )}
         </CardContent>
       </Card>
+
+      {owner && <PortalLinkCard clientId={client.id} />}
+
+      {!!projects.data?.projects.length && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Proyectos</CardTitle>
+          </CardHeader>
+          <CardContent className="divide-y p-0">
+            {projects.data.projects.map((p) => (
+              <ProjectCard key={p.id} p={p} />
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {owner && (
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base">Cotizaciones</CardTitle>
+            <Button size="sm" variant="outline" asChild>
+              <Link to={`/cotizaciones/nueva?cliente=${client.id}`}>
+                <FilePlus className="h-4 w-4" /> Nueva
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="divide-y">
+            {quotes.data?.quotes.length ? (
+              quotes.data.quotes.map((q) => (
+                <Link key={q.id} to={`/cotizaciones/${q.id}`} className="flex items-center justify-between gap-3 py-2.5 hover:underline">
+                  <span className="flex items-center gap-2">
+                    <span className="font-medium">{q.number}</span>
+                    <QuoteBadge status={q.status} />
+                  </span>
+                  <span className="font-semibold">{formatMoney(q.total, q.currency)}</span>
+                </Link>
+              ))
+            ) : (
+              <p className="py-2 text-sm text-muted-foreground">Sin cotizaciones todavía.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

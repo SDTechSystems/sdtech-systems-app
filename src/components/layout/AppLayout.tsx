@@ -1,18 +1,26 @@
-import { Home, Package, Settings, Users } from "lucide-react";
-import { NavLink, Outlet } from "react-router-dom";
+import { useState } from "react";
+import { FileText, FolderKanban, Home, MoreHorizontal, Package, Settings, Users } from "lucide-react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useMe } from "@/lib/session";
 
 const NAV = [
-  { to: "/", label: "Inicio", icon: Home, owner: false },
-  { to: "/clientes", label: "Clientes", icon: Users, owner: false },
-  { to: "/catalogo", label: "Catálogo", icon: Package, owner: true },
-  { to: "/ajustes", label: "Ajustes", icon: Settings, owner: true },
+  { to: "/", label: "Inicio", icon: Home, owner: false, mobile: true },
+  { to: "/clientes", label: "Clientes", icon: Users, owner: false, mobile: true },
+  { to: "/cotizaciones", label: "Cotizaciones", icon: FileText, owner: true, mobile: true },
+  { to: "/proyectos", label: "Proyectos", icon: FolderKanban, owner: false, mobile: true },
+  { to: "/catalogo", label: "Catálogo", icon: Package, owner: true, mobile: false },
+  { to: "/ajustes", label: "Ajustes", icon: Settings, owner: true, mobile: false },
 ];
 
 export function AppLayout() {
   const { data: me } = useMe();
+  const { pathname } = useLocation();
+  const [more, setMore] = useState(false);
   const items = NAV.filter((n) => !n.owner || me?.role === "owner");
+  const mobileMain = items.filter((n) => n.mobile);
+  const mobileMore = items.filter((n) => !n.mobile);
+  const moreActive = mobileMore.some((n) => pathname.startsWith(n.to));
 
   return (
     <div className="min-h-screen md:flex">
@@ -51,18 +59,43 @@ export function AppLayout() {
         </div>
       </main>
 
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 grid border-t bg-card" style={{ gridTemplateColumns: `repeat(${items.length}, 1fr)` }}>
-        {items.map(({ to, label, icon: Icon }) => (
+      {more && (
+        <div className="md:hidden fixed inset-0 z-30" onClick={() => setMore(false)}>
+          <div className="absolute bottom-16 right-3 w-48 rounded-xl border bg-card p-1 shadow-lg">
+            {mobileMore.map(({ to, label, icon: Icon }) => (
+              <NavLink key={to} to={to} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted">
+                <Icon className="h-4 w-4" /> {label}
+              </NavLink>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <nav
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 grid border-t bg-card"
+        style={{ gridTemplateColumns: `repeat(${mobileMain.length + (mobileMore.length ? 1 : 0)}, 1fr)` }}
+      >
+        {mobileMain.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
             end={to === "/"}
-            className={({ isActive }) => cn("flex flex-col items-center gap-1 py-2.5 text-xs", isActive ? "text-primary font-semibold" : "text-muted-foreground")}
+            onClick={() => setMore(false)}
+            className={({ isActive }) => cn("flex flex-col items-center gap-1 py-2.5 text-[11px]", isActive ? "text-primary font-semibold" : "text-muted-foreground")}
           >
             <Icon className="h-5 w-5" />
             {label}
           </NavLink>
         ))}
+        {mobileMore.length > 0 && (
+          <button
+            onClick={() => setMore(!more)}
+            className={cn("flex flex-col items-center gap-1 py-2.5 text-[11px]", moreActive ? "text-primary font-semibold" : "text-muted-foreground")}
+          >
+            <MoreHorizontal className="h-5 w-5" />
+            Más
+          </button>
+        )}
       </nav>
     </div>
   );

@@ -29,6 +29,7 @@
     "test"
   ],
   "exclude": [
-    "test/api-client.test.ts"
+    "test/api-client.test.ts",
+    "test/labels.test.ts"
   ]
 }
