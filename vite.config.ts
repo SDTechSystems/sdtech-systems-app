@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["brand/favicon-32.png", "brand/symbol.png"],
+      includeAssets: ["favicon.ico", "brand/icon-32.png", "brand/icon-512.png"],
       manifest: {
         name: "SD Tech Systems",
         short_name: "SD Tech",
@@ -19,7 +19,10 @@ export default defineConfig({
         background_color: "#07111F",
         theme_color: "#07111F",
         orientation: "any",
-        icons: [{ src: "/brand/symbol.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }],
+        icons: [
+          { src: "/brand/icon-256.png", sizes: "256x256", type: "image/png", purpose: "any" },
+          { src: "/brand/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+        ],
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webp}"],

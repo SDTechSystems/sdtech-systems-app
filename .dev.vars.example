@@ -1,0 +1,4 @@
+# Solo para desarrollo local (wrangler dev). Copia este archivo como .dev.vars.
+# Sin ACCESS_AUD, el panel entra con este correo sin pedir login.
+DEV_AUTH_EMAIL=tu-correo@ejemplo.com
+OWNER_EMAIL=tu-correo@ejemplo.com

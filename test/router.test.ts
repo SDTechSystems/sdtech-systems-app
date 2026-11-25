@@ -19,7 +19,7 @@ describe("router", () => {
   });
 
   it("serves brand images on the clients host, since the panel host sits behind Access", async () => {
-    expect(await (await get("https://clientes.sdtechsystems.dev/brand/logo-horizontal.png")).text()).toBe("asset");
+    expect(await (await get("https://clientes.sdtechsystems.dev/brand/logo-white.svg")).text()).toBe("asset");
     const page = await (await get("https://clientes.sdtechsystems.dev/c/abc")).text();
     expect(page).not.toContain("panel.sdtechsystems.dev");
   });

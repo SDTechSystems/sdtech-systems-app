@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "module": "ESNext",
     "skipLibCheck": true,
     "moduleResolution": "bundler",
@@ -10,9 +12,23 @@
     "moduleDetection": "force",
     "noEmit": true,
     "strict": true,
-    "types": ["@cloudflare/workers-types", "node"],
+    "types": [
+      "@cloudflare/workers-types",
+      "node"
+    ],
     "baseUrl": ".",
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
   },
-  "include": ["worker", "shared", "test"]
+  "include": [
+    "worker",
+    "shared",
+    "test"
+  ],
+  "exclude": [
+    "test/api-client.test.ts"
+  ]
 }

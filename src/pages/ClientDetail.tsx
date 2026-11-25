@@ -1,0 +1,129 @@
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useParams } from "react-router-dom";
+import { Archive, ArchiveRestore, ArrowLeft, MessageCircle, Pencil } from "lucide-react";
+import { toast } from "sonner";
+import { waLink } from "../../shared/phone";
+import type { ActivityEntry, Client } from "../../shared/types";
+import { ClientForm } from "@/components/ClientForm";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
+import { apiGet, apiSend } from "@/lib/api";
+import { errorMessage, formatDateTime } from "@/lib/labels";
+
+const ACTION_LABEL: Record<string, string> = { create: "Creó el cliente", update: "Actualizó los datos" };
+
+function Row({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+  return (
+    <div className="flex justify-between gap-4 py-2 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-medium break-all">{value}</span>
+    </div>
+  );
+}
+
+export default function ClientDetail() {
+  const { id = "" } = useParams();
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["client", id],
+    queryFn: () => apiGet<{ client: Client; activity: ActivityEntry[] }>(`/api/admin/clients/${id}`),
+  });
+
+  const archive = useMutation({
+    mutationFn: (archived: boolean) => apiSend<{ client: Client }>("PATCH", `/api/admin/clients/${id}`, { archived }),
+    onSuccess: ({ client }) => {
+      qc.invalidateQueries({ queryKey: ["clients"] });
+      qc.invalidateQueries({ queryKey: ["client", id] });
+      toast.success(client.archived ? "Cliente archivado" : "Cliente restaurado");
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  if (isLoading) return <Skeleton className="h-64 w-full" />;
+  if (error || !data) return <p className="py-10 text-center text-muted-foreground">No encontramos este cliente.</p>;
+  const { client, activity } = data;
+  const firstName = client.name.split(" ")[0];
+
+  return (
+    <div className="space-y-5">
+      <Link to="/clientes" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="h-4 w-4" /> Clientes
+      </Link>
+
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">{client.name}</h1>
+          {client.company && <p className="text-muted-foreground">{client.company}</p>}
+          {client.archived && <Badge variant="secondary" className="mt-2">Archivado</Badge>}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {client.phone && (
+            <Button asChild className="bg-[#1FA855] hover:bg-[#1A8F49]">
+              <a href={waLink(client.phone, `Hola ${firstName}, `)} target="_blank" rel="noreferrer">
+                <MessageCircle className="h-4 w-4" /> WhatsApp
+              </a>
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setEditing(true)}>
+            <Pencil className="h-4 w-4" /> Editar
+          </Button>
+          <Button variant="outline" onClick={() => archive.mutate(!client.archived)} disabled={archive.isPending}>
+            {client.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+            {client.archived ? "Restaurar" : "Archivar"}
+          </Button>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Datos</CardTitle>
+        </CardHeader>
+        <CardContent className="divide-y">
+          <Row label="WhatsApp" value={client.phone ? `+${client.phone}` : null} />
+          <Row label="Correo" value={client.email} />
+          <Row label="Cédula o NIT" value={client.document} />
+          <Row label="Ciudad" value={client.city} />
+          {client.notes && <p className="whitespace-pre-wrap py-3 text-sm">{client.notes}</p>}
+          {!client.phone && !client.email && !client.document && !client.city && !client.notes && (
+            <p className="py-2 text-sm text-muted-foreground">Sin datos adicionales.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Historial</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-3">
+            {activity.map((a, i) => (
+              <li key={i} className="text-sm">
+                <p className="font-medium">{ACTION_LABEL[a.action] ?? a.action}</p>
+                <p className="text-muted-foreground">
+                  {formatDateTime(a.at)} · {a.actor}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Sheet open={editing} onOpenChange={setEditing}>
+        <SheetContent className="overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Editar cliente</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            <ClientForm client={client} onDone={() => setEditing(false)} />
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}

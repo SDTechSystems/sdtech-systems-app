@@ -8,7 +8,7 @@ import type { Env } from "./env";
 import { error } from "./http";
 import { renderPortalPlaceholder } from "./portal/placeholder";
 
-export const PORTAL_HOST = "clientes.sdtechsystems.dev";
+const PORTAL_HOST = "clientes.sdtechsystems.dev";
 
 const ADMIN: Record<string, Handler> = {
   me: handleMe,

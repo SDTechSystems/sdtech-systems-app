@@ -1,0 +1,21 @@
+// SD Tech Systems — panel (panel.sdtechsystems.dev) y portal de clientes (clientes.sdtechsystems.dev).
+// Los secretos OWNER_EMAIL, ACCESS_TEAM_DOMAIN y ACCESS_AUD se ponen en el panel de Cloudflare, no aquí.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sdtech-systems-app",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-11-13",
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "panel.sdtechsystems.dev", "custom_domain": true },
+    { "pattern": "clientes.sdtechsystems.dev", "custom_domain": true }
+  ],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "d1_databases": [{ "binding": "DB", "database_name": "sdtech-systems" }],
+  "observability": { "enabled": true }
+}

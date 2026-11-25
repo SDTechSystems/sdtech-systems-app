@@ -1,4 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@font-face {
+  font-family: "DejaVu Sans";
+  src: url("/fonts/DejaVuSans.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "DejaVu Sans";
+  src: url("/fonts/DejaVuSans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
 
 @tailwind base;
 @tailwind components;
@@ -6,19 +17,21 @@
 
 @layer base {
   :root {
-    /* Marca SD Tech Systems */
+    /* Marca SD Tech Systems v1.1 (brand-tokens.json) */
+    --sd-navy: #061C45;
+    --sd-white: #F4F8FC;
     --sd-cyan: #00BDE8;
     --sd-blue: #2563EB;
     --sd-ink: #07111F;
     --sd-muted: #A7B9CD;
 
-    --background: 210 25% 97%;
+    --background: 210 50% 97%;
     --foreground: 215 63% 7%;
     --card: 0 0% 100%;
     --card-foreground: 215 63% 7%;
     --popover: 0 0% 100%;
     --popover-foreground: 215 63% 7%;
-    --primary: 221 83% 53%;
+    --primary: 220 84% 15%;
     --primary-foreground: 0 0% 100%;
     --secondary: 213 25% 93%;
     --secondary-foreground: 215 45% 15%;
@@ -55,7 +68,7 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-family: "DejaVu Sans", system-ui, sans-serif;
     -webkit-tap-highlight-color: transparent;
   }
 }
