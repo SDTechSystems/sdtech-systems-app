@@ -44,4 +44,13 @@ export const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS idx_portal_tokens_client ON portal_tokens (client_id)`,
     ],
   },
+  {
+    id: "0003_payments",
+    statements: [
+      `CREATE TABLE IF NOT EXISTS payment_plans (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, label TEXT NOT NULL, amount INTEGER NOT NULL CHECK(amount > 0), due_date TEXT NOT NULL, paid_at TEXT, created_at TEXT NOT NULL)`,
+      `CREATE TABLE IF NOT EXISTS payments (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, plan_id TEXT, amount INTEGER NOT NULL CHECK(amount > 0), paid_on TEXT NOT NULL, method TEXT NOT NULL CHECK(method IN ('nequi','bancolombia','efectivo','breb')), note TEXT, created_at TEXT NOT NULL)`,
+      `CREATE INDEX IF NOT EXISTS idx_payment_plans_project ON payment_plans (project_id, due_date)`,
+      `CREATE INDEX IF NOT EXISTS idx_payments_project ON payments (project_id, paid_on)`,
+    ],
+  },
 ];

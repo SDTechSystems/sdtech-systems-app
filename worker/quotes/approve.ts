@@ -1,4 +1,4 @@
-import { todayBogota } from "../../shared/dates";
+import { addDays, todayBogota } from "../../shared/dates";
 import type { Quote } from "../../shared/types";
 import { error, now } from "../http";
 import { getSettings } from "../settings";
@@ -55,6 +55,13 @@ export async function approveQuote(db: D1Database, quoteId: string, input: Appro
         .prepare(`INSERT INTO phases (id, project_id, parent_id, position, name, status, done_at, created_at) SELECT ?, ?, NULL, ?, ?, ?, ?, ? WHERE ${guard}`)
         .bind(crypto.randomUUID(), projectId, i + 1, name, statuses[i], statuses[i] === "done" ? t : null, t, quoteId, projectId),
     ),
+    ...(quote.advanceAmount > 0
+      ? [
+          db
+            .prepare(`INSERT INTO payment_plans (id, project_id, label, amount, due_date, created_at) SELECT ?, ?, 'Anticipo', ?, ?, ? WHERE ${guard}`)
+            .bind(crypto.randomUUID(), projectId, quote.advanceAmount, addDays(today, 3), t, quoteId, projectId),
+        ]
+      : []),
     db
       .prepare(`INSERT INTO activity_log (id, at, actor, entity_type, entity_id, action, detail) SELECT ?, ?, ?, 'quote', ?, 'approve', ? WHERE ${guard}`)
       .bind(crypto.randomUUID(), t, input.actor, quoteId, JSON.stringify({ by: input.by, name: input.name ?? null, comment: input.comment ?? null, total: quote.total }), quoteId, projectId),

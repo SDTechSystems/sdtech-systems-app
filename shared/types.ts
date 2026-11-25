@@ -120,3 +120,36 @@ export interface Project {
   phases: Phase[];
   createdAt: string;
 }
+
+export type PaymentMethod = "nequi" | "bancolombia" | "efectivo" | "breb";
+export type PlanStatus = "pending" | "overdue" | "paid";
+
+export interface PaymentPlan {
+  id: string;
+  projectId: string;
+  label: string;
+  amount: number;
+  dueDate: string;
+  status: PlanStatus;
+  paidAt: string | null;
+  paidAmount: number;
+}
+
+export interface Payment {
+  id: string;
+  projectId: string;
+  planId: string | null;
+  amount: number;
+  paidOn: string;
+  method: PaymentMethod;
+  note: string | null;
+}
+
+export interface PaymentSummary {
+  currency: Currency;
+  total: number;
+  paid: number;
+  balance: number;
+  plans: PaymentPlan[];
+  payments: Payment[];
+}

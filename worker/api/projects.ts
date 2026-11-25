@@ -6,6 +6,7 @@ import { error, json, now, readJson } from "../http";
 import { listProjects, loadProject } from "../projects/repo";
 import { initialPhaseStatuses } from "../quotes/approve";
 import { getSettings } from "../settings";
+import { handleProjectPayments } from "./payments";
 
 const SERVICES: Service[] = ["web", "marca", "software", "general"];
 const STATUSES: ProjectStatus[] = ["active", "paused", "delivered", "cancelled"];
@@ -31,6 +32,7 @@ const activityOf = async (db: D1Database, type: string, id: string) =>
   ).results.map((r) => ({ ...r, detail: r.detail ? JSON.parse(r.detail) : null }));
 
 export const handleProjects: Handler = async (request, env, session, path) => {
+  if (path[1] && (path[2] === "payments" || path[2] === "payment-plans")) return handleProjectPayments(request, env, session, path);
   const db = env.DB;
   const money = session.role === "owner";
   const id = path[1] ? decodeURIComponent(path[1]) : null;
