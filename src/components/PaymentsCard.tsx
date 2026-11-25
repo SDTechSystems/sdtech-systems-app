@@ -34,6 +34,7 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
   const [date, setDate] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("breb");
   const [note, setNote] = useState("");
+  const [planChoice, setPlanChoice] = useState("none");
 
   const done = (r: PaymentSummary) => {
     qc.setQueryData(key, r);
@@ -57,7 +58,10 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
     setDialog({ type: "plan" });
   };
   const openPayment = (plan?: PaymentPlan) => {
-    setAmount(plan ? formatMoney(plan.amount - plan.paidAmount, data!.currency).replace(/^US\$ |^\$ /, "") : "");
+    // Sin compromiso elegido, propone el primero pendiente para que el pago lo descuente.
+    const target = plan ?? data?.plans.find((p) => p.status !== "paid");
+    setPlanChoice(target?.id ?? "none");
+    setAmount(target ? formatMoney(target.amount - target.paidAmount, data!.currency).replace(/^US\$ |^\$ /, "") : "");
     setDate(todayBogota());
     setMethod("breb");
     setNote("");
@@ -186,7 +190,7 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
               e.preventDefault();
               const value = parseMoneyInput(amount, data.currency) ?? 0;
               if (dialog?.type === "plan") call.mutate({ method: "POST", path: `/api/admin/projects/${projectId}/payment-plans`, body: { label, amount: value, dueDate: date } });
-              else call.mutate({ method: "POST", path: `/api/admin/projects/${projectId}/payments`, body: { amount: value, paidOn: date, method, planId: dialog?.plan?.id ?? null, note } });
+              else call.mutate({ method: "POST", path: `/api/admin/projects/${projectId}/payments`, body: { amount: value, paidOn: date, method, planId: dialog?.plan?.id ?? (planChoice === "none" ? null : planChoice), note } });
             }}
           >
             {dialog?.type === "plan" && (
@@ -205,6 +209,26 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
                 <Input id="pdate" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
               </div>
             </div>
+            {dialog?.type === "payment" && !dialog.plan && data.plans.some((p) => p.status !== "paid") && (
+              <div className="space-y-1.5">
+                <Label>¿A qué compromiso corresponde?</Label>
+                <Select value={planChoice} onValueChange={setPlanChoice}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {data.plans
+                      .filter((p) => p.status !== "paid")
+                      .map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.label} · faltan {formatMoney(p.amount - p.paidAmount, data.currency)}
+                        </SelectItem>
+                      ))}
+                    <SelectItem value="none">Ninguno (abono general)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {dialog?.type === "payment" && (
               <>
                 <div className="space-y-1.5">

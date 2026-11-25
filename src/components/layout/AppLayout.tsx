@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, FolderKanban, Home, MoreHorizontal, Package, Settings, Users } from "lucide-react";
+import { FileText, FolderKanban, Home, MoreHorizontal, Package, Repeat, Settings, Users } from "lucide-react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useMe } from "@/lib/session";
@@ -9,6 +9,7 @@ const NAV = [
   { to: "/clientes", label: "Clientes", icon: Users, owner: false, mobile: true },
   { to: "/cotizaciones", label: "Cotizaciones", icon: FileText, owner: true, mobile: true },
   { to: "/proyectos", label: "Proyectos", icon: FolderKanban, owner: false, mobile: true },
+  { to: "/suscripciones", label: "Suscripciones", icon: Repeat, owner: true, mobile: false },
   { to: "/catalogo", label: "Catálogo", icon: Package, owner: true, mobile: false },
   { to: "/ajustes", label: "Ajustes", icon: Settings, owner: true, mobile: false },
 ];

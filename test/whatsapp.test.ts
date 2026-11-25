@@ -40,3 +40,11 @@ it("fills the meeting reminder in Bogotá time", async () => {
     "Hola María, te recuerdo nuestra reunión el jueves 10 de diciembre a las 19:30. Enlace: https://meet.google.com/abc-defg-hij",
   );
 });
+
+it("fills the subscription reminder", async () => {
+  const { subscriptionVars } = await import("../src/lib/whatsapp");
+  const sub = { name: "Hosting", amount: 25000, currency: "COP", nextDue: "2026-12-12", clientName: "María Gómez" } as Parameters<typeof subscriptionVars>[0];
+  expect(fillTemplate(DEFAULT_TEMPLATES.subscription, subscriptionVars(sub, settings))).toBe(
+    "Hola María, te recuerdo el pago de Hosting por $ 25.000, que vence el 12 de diciembre de 2026. Llave Bre-B 3058147293 (Davibank).",
+  );
+});

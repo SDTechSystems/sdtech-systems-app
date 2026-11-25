@@ -26,10 +26,12 @@ export function TemplatesCard() {
   const { data } = useSettingsQuery();
   const [templates, setTemplates] = useState<Settings["templates"] | null>(null);
   const [alerts, setAlerts] = useState<Settings["alerts"] | null>(null);
+  const [eventHour, setEventHour] = useState<number | null>(null);
   useEffect(() => {
     if (data && !templates) {
       setTemplates(data.settings.templates);
       setAlerts(data.settings.alerts);
+      setEventHour(data.settings.calendar.eventHour);
     }
   }, [data, templates]);
   const save = useMutation({
@@ -81,7 +83,12 @@ export function TemplatesCard() {
               </div>
             ))}
           </div>
-          <Button disabled={save.isPending} onClick={() => save.mutate({ alerts })}>
+          <div className="max-w-xs space-y-1.5">
+            <Label htmlFor="al-hour">Hora de los recordatorios en el calendario (0–22)</Label>
+            <Input id="al-hour" inputMode="numeric" value={String(eventHour ?? 9)} onChange={(e) => setEventHour(Number.parseInt(e.target.value, 10) || 0)} />
+            <p className="text-xs text-muted-foreground">Entregas, fases y cobros aparecen a esta hora en tu Google Calendar.</p>
+          </div>
+          <Button disabled={save.isPending} onClick={() => save.mutate({ alerts, calendar: { eventHour: eventHour ?? 9 } })}>
             Guardar avisos
           </Button>
         </CardContent>

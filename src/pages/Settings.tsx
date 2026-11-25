@@ -86,11 +86,13 @@ export default function Settings() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Exportar</CardTitle>
-          <CardDescription>Disponible en una próxima etapa.</CardDescription>
+          <CardDescription>Descarga todos tus datos (clientes, cotizaciones, proyectos, pagos, suscripciones y facturas) en un archivo. Guárdalo como copia de seguridad.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button variant="outline" disabled>
-            Descargar copia (JSON)
+          <Button variant="outline" asChild>
+            <a href="/api/admin/export" download>
+              Descargar copia (JSON)
+            </a>
           </Button>
         </CardContent>
       </Card>

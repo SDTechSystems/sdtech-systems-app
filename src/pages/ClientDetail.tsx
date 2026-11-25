@@ -8,6 +8,7 @@ import type { ActivityEntry, Client } from "../../shared/types";
 import { ClientForm } from "@/components/ClientForm";
 import { PortalLinkCard } from "@/components/PortalLinkCard";
 import { MeetingsCard } from "@/components/MeetingsCard";
+import { SubscriptionsCard } from "@/components/SubscriptionsCard";
 import { QuoteBadge } from "@/components/StatusBadge";
 import { ProjectCard } from "@/pages/Projects";
 import { formatMoney } from "../../shared/money";
@@ -118,6 +119,8 @@ export default function ClientDetail() {
       </Card>
 
       <MeetingsCard client={client} />
+
+      {owner && <SubscriptionsCard clientId={client.id} />}
 
       {owner && <PortalLinkCard clientId={client.id} />}
 

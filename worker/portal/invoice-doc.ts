@@ -20,7 +20,7 @@ th{background:var(--navy);color:#fff;text-align:left;padding:9px 10px;font-size:
 th.n,td.n{text-align:right;white-space:nowrap}
 td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}td .detail{color:var(--soft);font-size:.86rem;white-space:pre-wrap;margin-top:2px}
 .totals{margin:14px 0 0 auto;width:min(360px,100%);font-size:.95rem}
-.totals div{display:flex;justify-content:space-between;padding:6px 0}
+.totals div{display:flex;justify-content:space-between;gap:16px;padding:6px 0}
 .totals .grand{border-top:2px solid var(--navy);font-weight:700;font-size:1.15rem;color:var(--navy)}
 .totals .pay{color:var(--soft);font-size:.88rem}.totals .bal{font-weight:700;color:var(--blue);font-size:1.05rem;border-top:1px solid var(--line)}
 .foot{display:flex;gap:16px;align-items:center;margin-top:26px;border-top:1px solid var(--line);padding-top:16px}

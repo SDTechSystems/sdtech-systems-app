@@ -11,7 +11,7 @@ import { apiGet, apiSend } from "@/lib/api";
 import { errorMessage, formatDate, formatDateTime } from "@/lib/labels";
 import { getPortalUrl } from "@/lib/quote-actions";
 import { useSettingsQuery } from "@/lib/useSettings";
-import { logReminder, openWhatsApp, paymentVars } from "@/lib/whatsapp";
+import { logReminder, openWhatsApp, paymentVars, subscriptionVars } from "@/lib/whatsapp";
 import type { PaymentSummary } from "../../shared/types";
 
 const ICON: Record<PendingKind, typeof Wallet> = {
@@ -45,6 +45,16 @@ function Item({ it, onRemind }: { it: PendingItem; onRemind: (it: PendingItem) =
           {it.subtitle}
           {it.date && it.kind !== "stale" && it.kind !== "portal" ? ` · ${formatDate(it.date)}` : ""}
         </p>
+        {it.kind === "subscription" && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="whatsapp" className="h-8" onClick={() => onRemind(it)}>
+              <MessageCircle className="h-4 w-4" /> Cobrar
+            </Button>
+            <Button size="sm" variant="outline" className="h-8" asChild>
+              <Link to="/suscripciones">Registrar pago</Link>
+            </Button>
+          </div>
+        )}
         {it.kind === "payment" && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Button size="sm" variant="whatsapp" className="h-8" onClick={() => onRemind(it)}>
@@ -71,6 +81,15 @@ export function PendingList({ data, owner }: { data: Pending; owner: boolean }) 
   });
 
   const remind = async (it: PendingItem) => {
+    if (it.kind === "subscription" && settings.data && it.amount !== undefined && it.currency && it.date) {
+      const text = fillTemplate(
+        settings.data.settings.templates.subscription,
+        subscriptionVars({ name: it.title.replace(/^Cobro: /, ""), amount: it.amount, currency: it.currency, nextDue: it.date, clientName: it.clientName }, settings.data.settings),
+      );
+      if (!openWhatsApp(it.clientPhone, text)) toast.success("El cliente no tiene WhatsApp: copiamos el mensaje.");
+      void logReminder("client", it.clientId, "subscription");
+      return;
+    }
     if (!settings.data || !it.projectId || !it.planId) return;
     const tab = it.clientPhone ? window.open("about:blank", "_blank") : null;
     const [url, pay] = await Promise.all([getPortalUrl(it.clientId), apiGet<PaymentSummary>(`/api/admin/projects/${it.projectId}/payments`)]);

@@ -2,7 +2,7 @@ import { formatLongDate, meetingDayLabel, meetingTime24Label } from "../../share
 import { formatMoney } from "../../shared/money";
 import { waLink } from "../../shared/phone";
 import type { TemplateKey } from "../../shared/templates";
-import type { Currency, Meeting, PaymentPlan, Project, Settings } from "../../shared/types";
+import type { Currency, Meeting, PaymentPlan, Project, Settings, Subscription } from "../../shared/types";
 import { apiSend } from "./api";
 import { firstName } from "./labels";
 
@@ -45,4 +45,15 @@ export const logReminder = (entityType: "project" | "quote" | "payment_plan" | "
 
 export function meetingVars(meeting: Pick<Meeting, "startAt" | "meetUrl">, clientName: string) {
   return { nombre: firstName(clientName), fecha: meetingDayLabel(meeting.startAt), hora: meetingTime24Label(meeting.startAt), meet: meeting.meetUrl ?? "" };
+}
+
+export function subscriptionVars(sub: Pick<Subscription, "name" | "amount" | "currency" | "nextDue" | "clientName">, settings: Pick<Settings, "payment">) {
+  return {
+    nombre: firstName(sub.clientName),
+    servicio: sub.name,
+    monto: formatMoney(sub.amount, sub.currency),
+    fecha: formatLongDate(sub.nextDue),
+    llave: settings.payment.brebKey,
+    banco: settings.payment.bank,
+  };
 }

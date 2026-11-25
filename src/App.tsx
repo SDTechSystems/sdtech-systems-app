@@ -16,6 +16,7 @@ import QuoteDetail from "@/pages/QuoteDetail";
 import QuoteEditor from "@/pages/QuoteEditor";
 import Quotes from "@/pages/Quotes";
 import Settings from "@/pages/Settings";
+import Subscriptions from "@/pages/Subscriptions";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,6 +69,7 @@ export default function App() {
               <Route path="cotizaciones/:id/editar" element={<OwnerOnly><QuoteEditor /></OwnerOnly>} />
               <Route path="proyectos" element={<Projects />} />
               <Route path="proyectos/:id" element={<ProjectDetail />} />
+              <Route path="suscripciones" element={<OwnerOnly><Subscriptions /></OwnerOnly>} />
               <Route path="catalogo" element={<OwnerOnly><Catalog /></OwnerOnly>} />
               <Route path="ajustes" element={<OwnerOnly><Settings /></OwnerOnly>} />
               <Route path="*" element={<Home />} />

@@ -11,6 +11,8 @@ import { PaymentsCard } from "@/components/PaymentsCard";
 import { MeetingsCard } from "@/components/MeetingsCard";
 import { ChangesCard } from "@/components/ChangesCard";
 import { DeliveryCard } from "@/components/DeliveryCard";
+import { InvoicesCard } from "@/components/InvoicesCard";
+import { ActivityCard } from "@/components/ActivityCard";
 import type { PaymentSummary } from "../../shared/types";
 import { useSettingsQuery } from "@/lib/useSettings";
 import { logReminder, openWhatsApp, progressVars } from "@/lib/whatsapp";
@@ -216,6 +218,8 @@ export default function ProjectDetail() {
 
       {owner && client.data && <DeliveryCard project={p} client={client.data.client} payments={payments.data} />}
 
+      {owner && client.data && <InvoicesCard projectId={p.id} client={client.data.client} />}
+
       {owner && client.data && <PaymentsCard projectId={p.id} client={client.data.client} lastReminders={lastReminders} />}
 
       <Card>
@@ -262,6 +266,7 @@ export default function ProjectDetail() {
           )}
         </CardContent>
       </Card>
+      <ActivityCard activity={data?.activity ?? []} />
     </div>
   );
 }
