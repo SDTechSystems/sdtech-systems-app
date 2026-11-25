@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { MeetingDialog } from "@/components/MeetingDialog";
 import { Link } from "react-router-dom";
-import { FilePlus } from "lucide-react";
+import { CalendarPlus, FilePlus } from "lucide-react";
 import type { Pending } from "../../shared/types";
 import { PendingList } from "@/components/PendingList";
 import { MeetingRow } from "@/components/MeetingsCard";
@@ -19,6 +21,7 @@ function greetingNow(): [string, string] {
 
 export default function Home() {
   const greeting = greetingNow();
+  const [scheduling, setScheduling] = useState(false);
   const { data: me } = useMe();
   const owner = me?.role === "owner";
   const { data, isLoading } = useQuery({ queryKey: ["pending"], queryFn: () => apiGet<Pending>("/api/admin/pending"), refetchInterval: 5 * 60_000 });
@@ -36,13 +39,19 @@ export default function Home() {
               : "Esto es lo que tienes pendiente."}
           </p>
         </div>
-        {owner && (
-          <Button asChild>
-            <Link to="/cotizaciones/nueva">
-              <FilePlus className="h-4 w-4" /> Nueva cotización
-            </Link>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setScheduling(true)}>
+            <CalendarPlus className="h-4 w-4" /> Agendar reunión
           </Button>
-        )}
+          {owner && (
+            <Button asChild>
+              <Link to="/cotizaciones/nueva">
+                <FilePlus className="h-4 w-4" /> Nueva cotización
+              </Link>
+            </Button>
+          )}
+        </div>
+        {scheduling && <MeetingDialog open={scheduling} onOpenChange={setScheduling} />}
       </div>
       {data?.google.status === "reconnect" && owner && (
         <Card className="border-amber-300/50 p-4 text-sm">

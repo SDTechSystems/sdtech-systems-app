@@ -9,6 +9,9 @@ import { fillTemplate } from "../../shared/templates";
 import type { ActivityEntry, Client, Phase, PhaseStatus, Project, ProjectStatus } from "../../shared/types";
 import { PaymentsCard } from "@/components/PaymentsCard";
 import { MeetingsCard } from "@/components/MeetingsCard";
+import { ChangesCard } from "@/components/ChangesCard";
+import { DeliveryCard } from "@/components/DeliveryCard";
+import type { PaymentSummary } from "../../shared/types";
 import { useSettingsQuery } from "@/lib/useSettings";
 import { logReminder, openWhatsApp, progressVars } from "@/lib/whatsapp";
 import { PhaseIcon, ProgressBar, ProjectBadge } from "@/components/StatusBadge";
@@ -82,6 +85,7 @@ export default function ProjectDetail() {
   const p = data?.project;
   const client = useQuery({ queryKey: ["client", p?.clientId], queryFn: () => apiGet<{ client: Client }>(`/api/admin/clients/${p!.clientId}`), enabled: !!p });
   const settings = useSettingsQuery(owner);
+  const payments = useQuery({ queryKey: ["payments", id], queryFn: () => apiGet<PaymentSummary>(`/api/admin/projects/${id}/payments`), enabled: owner });
   const lastReminders: Record<string, string> = {};
   for (const a of data?.activity ?? []) {
     const planId = (a.detail as { planId?: string } | null)?.planId;
@@ -208,6 +212,10 @@ export default function ProjectDetail() {
 
       {client.data && <MeetingsCard client={client.data.client} projectId={p.id} defaultTitle={`Reunión: ${p.title}`} />}
 
+      {client.data && <ChangesCard projectId={p.id} projectTitle={p.title} client={client.data.client} currency={p.currency ?? "COP"} owner={owner} />}
+
+      {owner && client.data && <DeliveryCard project={p} client={client.data.client} payments={payments.data} />}
+
       {owner && client.data && <PaymentsCard projectId={p.id} client={client.data.client} lastReminders={lastReminders} />}
 
       <Card>
@@ -240,7 +248,7 @@ export default function ProjectDetail() {
           </div>
           {owner && p.total !== null && p.currency && (
             <p className="text-sm sm:col-span-2">
-              Total acordado: <strong>{formatMoney(p.total, p.currency)}</strong>
+              Valor de la cotización: <strong>{formatMoney(p.total, p.currency)}</strong>
               {p.advancePercent ? ` · anticipo ${p.advancePercent}%` : ""}
               {p.quoteId && (
                 <>

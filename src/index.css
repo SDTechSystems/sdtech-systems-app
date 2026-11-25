@@ -91,6 +91,13 @@
     outline: 3px solid var(--sd-blue);
     outline-offset: 4px;
   }
+  /* Al pasar de campo en el celular, deja aire bajo el campo sin centrarlo. */
+  input,
+  textarea,
+  select,
+  button[role="combobox"] {
+    scroll-margin-block: 24px 96px;
+  }
   input[type="date"]::-webkit-calendar-picker-indicator {
     filter: invert(0.8);
   }

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { addDays, todayBogota } from "../../shared/dates";
-import type { Meeting } from "../../shared/types";
+import type { Client, Meeting } from "../../shared/types";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { apiSend } from "@/lib/api";
+import { apiGet, apiSend } from "@/lib/api";
 import { errorMessage } from "@/lib/labels";
 
 const localParts = (instant: string) => {
@@ -29,8 +29,9 @@ export function MeetingDialog({
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  clientId: string;
-  clientEmail: string | null;
+  /** Sin clientId, el diálogo muestra un selector de cliente. */
+  clientId?: string;
+  clientEmail?: string | null;
   projectId?: string;
   meeting?: Meeting;
   defaultTitle?: string;
@@ -43,10 +44,15 @@ export function MeetingDialog({
   const [duration, setDuration] = useState(String(meeting?.durationMin ?? 30));
   const [notes, setNotes] = useState(meeting?.notes ?? "");
   const [invite, setInvite] = useState(meeting?.inviteClient ?? false);
+  const [pickedId, setPickedId] = useState("");
+  const clients = useQuery({ queryKey: ["clients", "", false], queryFn: () => apiGet<{ clients: Client[] }>("/api/admin/clients?q=&archived=0"), enabled: !clientId && open });
+  const picked = clients.data?.clients.find((c) => c.id === pickedId);
+  const effectiveClientId = clientId ?? pickedId;
+  const effectiveEmail = clientId ? (clientEmail ?? null) : (picked?.email ?? null);
 
   const save = useMutation({
     mutationFn: () => {
-      const body = { clientId, projectId, title, start: `${date}T${time}`, durationMin: Number(duration), notes, inviteClient: invite };
+      const body = { clientId: effectiveClientId, projectId, title, start: `${date}T${time}`, durationMin: Number(duration), notes, inviteClient: invite };
       return meeting
         ? apiSend<{ meeting: Meeting; googleError: string | null }>("PATCH", `/api/admin/meetings/${meeting.id}`, body)
         : apiSend<{ meeting: Meeting; googleError: string | null }>("POST", "/api/admin/meetings", body);
@@ -75,6 +81,24 @@ export function MeetingDialog({
             save.mutate();
           }}
         >
+          {!clientId && (
+            <div className="space-y-1.5">
+              <Label>Cliente</Label>
+              <Select value={pickedId} onValueChange={setPickedId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Escoge un cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.data?.clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                      {c.company ? ` · ${c.company}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="mtitle">Título</Label>
             <Input id="mtitle" value={title} onChange={(e) => setTitle(e.target.value)} required />
@@ -110,13 +134,13 @@ export function MeetingDialog({
           </div>
           {!meeting && (
             <div className="flex items-center gap-2">
-              <Switch id="minvite" checked={invite} onCheckedChange={setInvite} disabled={!clientEmail} />
-              <Label htmlFor="minvite" className={clientEmail ? "" : "text-muted-foreground"}>
-                {clientEmail ? `Invitar al cliente por correo (${clientEmail})` : "Invitar por correo (el cliente no tiene correo)"}
+              <Switch id="minvite" checked={invite} onCheckedChange={setInvite} disabled={!effectiveEmail} />
+              <Label htmlFor="minvite" className={effectiveEmail ? "" : "text-muted-foreground"}>
+                {effectiveEmail ? `Invitar al cliente por correo (${effectiveEmail})` : "Invitar por correo (el cliente no tiene correo)"}
               </Label>
             </div>
           )}
-          <Button type="submit" className="w-full" disabled={save.isPending}>
+          <Button type="submit" className="w-full" disabled={save.isPending || !effectiveClientId}>
             {meeting ? "Guardar cambios" : "Agendar"}
           </Button>
         </form>

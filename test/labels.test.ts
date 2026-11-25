@@ -8,3 +8,9 @@ it("writes the WhatsApp message for a quote", () => {
     "Hola María, te comparto la cotización COT-0007 por $ 650.000. Puedes verla y aprobarla aquí: https://clientes.sdtechsystems.dev/c/abc. Es válida hasta el 25 de diciembre de 2026.",
   );
 });
+
+it("prints signed amounts for cost changes", async () => {
+  const { signedMoney } = await import("../src/lib/labels");
+  expect(signedMoney(150000, "COP")).toBe("+ $ 150.000");
+  expect(signedMoney(-120000, "COP")).toBe("− $ 120.000");
+});

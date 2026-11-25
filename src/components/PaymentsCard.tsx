@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, MessageCircle, Plus, Trash2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { addDays, todayBogota } from "../../shared/dates";
-import { formatMoney, parseMoneyInput } from "../../shared/money";
+import { formatMoney, parseMoneyInput, signedMoney } from "../../shared/money";
 import { fillTemplate } from "../../shared/templates";
 import type { Client, PaymentMethod, PaymentPlan, PaymentSummary } from "../../shared/types";
 import { Button } from "@/components/ui/button";
@@ -106,6 +106,12 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
             </div>
           ))}
         </div>
+
+        {data.changesTotal !== 0 && (
+          <p className="text-xs text-muted-foreground">
+            Cotización {m(data.baseTotal)} · cambios aprobados {signedMoney(data.changesTotal, data.currency)}
+          </p>
+        )}
 
         {data.plans.length > 0 && (
           <div className="divide-y rounded-lg border">
