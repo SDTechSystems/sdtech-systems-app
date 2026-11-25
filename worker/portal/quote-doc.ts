@@ -1,4 +1,4 @@
-import { formatLongDate } from "../../shared/dates";
+import { dayOf, formatLongDate } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
 import type { Quote, Settings } from "../../shared/types";
 import { esc, page, qrSvg } from "./html";
@@ -60,7 +60,7 @@ export function renderQuoteDocument(d: QuoteDocData): Response {
 <div class="top"><img src="/brand/logo-color.svg" alt="${esc(s.company.name)}"><div class="company"><strong style="color:var(--navy)">${esc(s.company.name)}</strong><br>${esc(s.company.phone)}<br>${esc(s.company.email)}<br>${esc(s.company.website)}</div></div>
 <div class="title"><h1>COTIZACIÓN</h1><span class="num">${esc(q.number)}</span></div>
 <div class="meta"><div class="box"><b>Cliente</b>${esc(c.name)}${clientLines.map((l) => `<br>${esc(l)}`).join("")}</div>
-<div class="box"><b>Fechas</b>Emitida: ${q.issuedAt ? esc(formatLongDate(q.issuedAt.slice(0, 10))) : "—"}<br>Válida hasta: ${q.validUntil ? esc(formatLongDate(q.validUntil)) : "—"}</div></div>
+<div class="box"><b>Fechas</b>Emitida: ${q.issuedAt ? esc(formatLongDate(dayOf(q.issuedAt))) : "—"}<br>Válida hasta: ${q.validUntil ? esc(formatLongDate(q.validUntil)) : "—"}</div></div>
 <table><thead><tr><th>Descripción</th><th class="n">Cant.</th><th class="n">Valor unitario</th><th class="n">Total</th></tr></thead><tbody>
 ${q.items.map((i) => `<tr><td><strong>${esc(i.title)}</strong>${i.detail ? `<div class="detail">${esc(i.detail)}</div>` : ""}</td><td class="n">${i.quantity}</td><td class="n">${money(i.unitPrice)}</td><td class="n">${money(i.quantity * i.unitPrice)}</td></tr>`).join("")}
 </tbody></table>

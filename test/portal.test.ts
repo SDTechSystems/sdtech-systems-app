@@ -136,4 +136,13 @@ describe("client portal", () => {
     const r = await fetchPortal(env, `${P}/api/portal/${token}/quotes/${q.id}/approve`, { method: "POST", body: "name=x", headers: { "content-type": "application/x-www-form-urlencoded" } });
     expect(r.status).toBe(415);
   });
+
+  it("prints the issue date in Bogotá time, also when sent in the evening", async () => {
+    const env = await makeEnv();
+    const c = await newClient(env, "María Gómez");
+    const q = await sentQuote(env, c.id);
+    await env.DB.prepare("UPDATE quotes SET issued_at = '2026-11-26T01:30:00.000Z' WHERE id = ?").bind(q.id).run();
+    const html = await (await fetchPortal(env, `${await portalUrl(env, c.id)}/cotizacion/COT-0001`)).text();
+    expect(html).toContain("Emitida: 25 de noviembre de 2026");
+  });
 });

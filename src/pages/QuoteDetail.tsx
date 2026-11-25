@@ -36,10 +36,16 @@ export default function QuoteDetail() {
         const { quote: sent } = await apiSend<{ quote: Quote }>("POST", `/api/admin/quotes/${id}/send`, {});
         return { shared: await shareQuote(sent, client.data!.client) };
       }
-      const note = action === "approve" ? prompt("Nota (opcional): por ejemplo «Aceptó por WhatsApp»") ?? undefined : action === "reject" ? prompt("¿Por qué? (opcional)") ?? undefined : undefined;
+      let note: string | undefined;
+      if (action === "approve" || action === "reject") {
+        const answer = prompt(action === "approve" ? "¿Confirmas que el cliente la aprobó? Nota opcional, por ejemplo «Aceptó por WhatsApp»:" : "¿Confirmas que la rechazó? Motivo opcional:", "");
+        if (answer === null) return { cancelled: true as const };
+        note = answer.trim() || undefined;
+      }
       return apiSend<{ quote: Quote; projectId?: string }>("POST", `/api/admin/quotes/${id}/${action}`, { note });
     },
     onSuccess: (r, action) => {
+      if ("cancelled" in r) return;
       refresh();
       if ("shared" in r) toast.success(r.shared ? "Abriendo WhatsApp…" : "El cliente no tiene WhatsApp: copiamos el mensaje.");
       else if (action === "renew" && "quote" in r) navigate(`/cotizaciones/${r.quote.id}/editar`);

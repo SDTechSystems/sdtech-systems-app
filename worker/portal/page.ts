@@ -1,4 +1,4 @@
-import { formatLongDate } from "../../shared/dates";
+import { dayOf, formatLongDate } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
 import { waLink } from "../../shared/phone";
 import type { Project, Quote, Settings } from "../../shared/types";
@@ -97,7 +97,7 @@ function quoteCard(q: Quote, base: string): string {
 <div class="actions"><button class="btn primary" name="action" value="approve">Aprobar cotización</button><button class="btn ghost" name="action" value="reject" formnovalidate>No me interesa</button></div><div class="msg" role="alert"></div></form>`;
   } else if (q.status === "approved") {
     const who = q.approvedBy === "client" && q.approvedName ? ` por ${esc(q.approvedName)}` : "";
-    extra = `<p class="muted">Aprobada${who} el ${esc(formatLongDate(q.approvedAt!.slice(0, 10)))}.</p>${q.clientComment ? `<div class="quote-note">${esc(q.clientComment)}</div>` : ""}`;
+    extra = `<p class="muted">Aprobada${who} el ${esc(formatLongDate(dayOf(q.approvedAt!)))}.</p>${q.clientComment ? `<div class="quote-note">${esc(q.clientComment)}</div>` : ""}`;
   } else if (q.status === "expired") {
     extra = `<p class="muted">Venció el ${esc(formatLongDate(q.validUntil!))}. Escríbenos si quieres actualizarla.</p>`;
   } else if (q.clientComment) {

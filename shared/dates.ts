@@ -18,3 +18,6 @@ const longDate = new Intl.DateTimeFormat("es-CO", { dateStyle: "long", timeZone:
 
 /** "2026-12-25" → "25 de diciembre de 2026". */
 export const formatLongDate = (date: string): string => longDate.format(new Date(`${date}T12:00:00Z`));
+
+/** Día calendario en Bogotá de un instante ISO (no usar iso.slice(0, 10): eso es la fecha UTC). */
+export const dayOf = (iso: string): string => todayBogota(new Date(iso));

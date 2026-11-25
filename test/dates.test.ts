@@ -15,3 +15,8 @@ it("keeps a quote valid through its last day", () => {
   expect(isExpired("2026-12-25", "2026-12-25")).toBe(false);
   expect(isExpired("2026-12-25", "2026-12-26")).toBe(true);
 });
+
+it("turns an instant into the Bogotá calendar day", async () => {
+  const { dayOf } = await import("../shared/dates");
+  expect(dayOf("2026-11-26T01:30:00.000Z")).toBe("2026-11-25");
+});
