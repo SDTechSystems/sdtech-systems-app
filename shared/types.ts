@@ -36,3 +36,10 @@ export interface Me {
   email: string;
   role: Role;
 }
+
+export interface ActivityEntry {
+  at: string;
+  actor: string;
+  action: string;
+  detail: unknown;
+}
