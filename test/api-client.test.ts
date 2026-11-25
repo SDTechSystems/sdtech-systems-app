@@ -23,11 +23,28 @@ describe("panel API client", () => {
     expect(err).toMatchObject({ status: 400, code: "name_required" });
   });
 
+  const memoryStorage = () => {
+    const m = new Map<string, string>();
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) };
+  };
+
   it("reloads the page when the Access session expired", async () => {
     const reload = vi.fn();
     vi.stubGlobal("location", { reload });
+    vi.stubGlobal("sessionStorage", memoryStorage());
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "unauthenticated" }), { status: 401 })));
     await apiGet("/api/admin/me").catch(() => undefined);
     expect(reload).toHaveBeenCalled();
+  });
+
+  it("does not reload in a loop when Access keeps rejecting the token", async () => {
+    const reload = vi.fn();
+    vi.stubGlobal("location", { reload });
+    vi.stubGlobal("sessionStorage", memoryStorage());
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "unauthenticated" }), { status: 401 })));
+    await apiGet("/api/admin/me").catch(() => undefined);
+    const err = await apiGet("/api/admin/me").catch((e) => e);
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(err).toMatchObject({ status: 401, code: "unauthenticated" });
   });
 });

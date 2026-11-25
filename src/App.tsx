@@ -27,12 +27,20 @@ function OwnerOnly({ children }: { children: ReactNode }) {
 function Gate({ children }: { children: ReactNode }) {
   const { error, isLoading } = useMe();
   if (isLoading) return <div className="min-h-screen bg-[var(--sd-ink)]" />;
-  if (error instanceof ApiError && error.code === "not_allowed")
+  const message =
+    error instanceof ApiError
+      ? ({
+          not_allowed: "Tu correo no tiene acceso a este panel.",
+          unauthenticated: "No se pudo confirmar tu sesión. Cierra y vuelve a abrir el panel; si sigue igual, revisa ACCESS_AUD y ACCESS_TEAM_DOMAIN en Cloudflare.",
+          access_not_configured: "El panel todavía no está configurado: faltan los secretos de Cloudflare Access (ver README).",
+        } as Record<string, string>)[error.code]
+      : undefined;
+  if (message)
     return (
       <div className="min-h-screen grid place-items-center bg-[var(--sd-ink)] p-6 text-center text-[var(--sd-white)]">
-        <div className="space-y-4">
+        <div className="max-w-md space-y-4">
           <img src="/brand/logo-white.svg" alt="SD Tech Systems" className="mx-auto w-56" />
-          <p>Tu correo no tiene acceso a este panel.</p>
+          <p>{message}</p>
         </div>
       </div>
     );
