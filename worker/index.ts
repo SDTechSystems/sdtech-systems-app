@@ -2,6 +2,7 @@ import { handleCatalog } from "./api/catalog";
 import { handleClients } from "./api/clients";
 import { handleGoogleAdmin, handleGoogleCallback, handleGoogleConnect } from "./api/google";
 import { handleMe } from "./api/me";
+import { handleMeetings } from "./api/meetings";
 import { handlePending } from "./api/pending";
 import { handleReminders } from "./api/reminders";
 import { handlePaymentPlans, handlePayments } from "./api/payments";
@@ -32,6 +33,7 @@ const ADMIN: Record<string, Handler> = {
   reminders: handleReminders,
   pending: handlePending,
   google: handleGoogleAdmin,
+  meetings: handleMeetings,
 };
 
 export default {

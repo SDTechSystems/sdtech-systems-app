@@ -21,3 +21,16 @@ export const formatLongDate = (date: string): string => longDate.format(new Date
 
 /** Día calendario en Bogotá de un instante ISO (no usar iso.slice(0, 10): eso es la fecha UTC). */
 export const dayOf = (iso: string): string => todayBogota(new Date(iso));
+
+const BOGOTA_OFFSET_MS = 5 * 60 * 60 * 1000;
+
+/** "2026-12-10T19:30" (hora de Bogotá) → "2026-12-10T19:30:00-05:00". Colombia no tiene horario de verano. */
+export const bogotaInstant = (local: string): string => `${local}:00-05:00`;
+
+/** Suma minutos a un instante y lo devuelve con -05:00. */
+export function addMinutesBogota(instant: string, minutes: number): string {
+  const ms = Date.parse(instant) + minutes * 60_000 - BOGOTA_OFFSET_MS;
+  return `${new Date(ms).toISOString().slice(0, 19)}-05:00`;
+}
+
+export const isLocalDateTime = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}:00-05:00`));

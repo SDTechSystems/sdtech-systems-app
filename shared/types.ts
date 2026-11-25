@@ -184,3 +184,19 @@ export interface Pending {
   meetings: never[];
   subscriptions: never[];
 }
+
+export interface Meeting {
+  id: string;
+  clientId: string;
+  clientName: string;
+  clientPhone: string | null;
+  projectId: string | null;
+  title: string;
+  startAt: string;
+  durationMin: number;
+  notes: string | null;
+  inviteClient: boolean;
+  meetUrl: string | null;
+  googleEventId: string | null;
+  status: "scheduled" | "cancelled";
+}
