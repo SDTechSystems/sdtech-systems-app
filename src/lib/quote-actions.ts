@@ -1,6 +1,6 @@
 import { waLink } from "../../shared/phone";
-import type { Client, Quote } from "../../shared/types";
-import { apiSend } from "./api";
+import type { Client, Quote, Settings } from "../../shared/types";
+import { apiGet, apiSend } from "./api";
 import { quoteWhatsAppText } from "./labels";
 
 export const getPortalUrl = async (clientId: string): Promise<string> => (await apiSend<{ url: string }>("POST", `/api/admin/clients/${clientId}/portal-link`, {})).url;
@@ -12,8 +12,9 @@ export const getPortalUrl = async (clientId: string): Promise<string> => (await 
  */
 export async function shareQuote(quote: Quote, client: Pick<Client, "id" | "name" | "phone">): Promise<boolean> {
   const tab = client.phone ? window.open("about:blank", "_blank") : null;
-  const url = await getPortalUrl(client.id);
-  const text = quoteWhatsAppText(quote, client.name, url);
+  const [url, { settings }] = await Promise.all([getPortalUrl(client.id), apiGet<{ settings: Settings }>("/api/admin/settings")]);
+  const text = quoteWhatsAppText(quote, client.name, url, settings.templates.quote);
+  void apiSend("POST", "/api/admin/reminders", { entityType: "quote", entityId: quote.id, kind: "quote" }).catch(() => undefined);
   if (client.phone && tab) {
     tab.location.href = waLink(client.phone, text);
     return true;

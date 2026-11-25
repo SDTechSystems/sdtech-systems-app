@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, MessageCircle, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { BRAND_ROUNDS_PHASE } from "../../shared/phases";
 import { formatMoney } from "../../shared/money";
-import type { Phase, PhaseStatus, Project, ProjectStatus } from "../../shared/types";
+import { fillTemplate } from "../../shared/templates";
+import type { ActivityEntry, Client, Phase, PhaseStatus, Project, ProjectStatus } from "../../shared/types";
+import { PaymentsCard } from "@/components/PaymentsCard";
+import { useSettingsQuery } from "@/lib/useSettings";
+import { logReminder, openWhatsApp, progressVars } from "@/lib/whatsapp";
 import { PhaseIcon, ProgressBar, ProjectBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,8 +77,25 @@ export default function ProjectDetail() {
   const qc = useQueryClient();
   const { data: me } = useMe();
   const owner = me?.role === "owner";
-  const { data, isLoading } = useQuery({ queryKey: ["project", id], queryFn: () => apiGet<{ project: Project }>(`/api/admin/projects/${id}`) });
+  const { data, isLoading } = useQuery({ queryKey: ["project", id], queryFn: () => apiGet<{ project: Project; activity: ActivityEntry[] }>(`/api/admin/projects/${id}`) });
   const p = data?.project;
+  const client = useQuery({ queryKey: ["client", p?.clientId], queryFn: () => apiGet<{ client: Client }>(`/api/admin/clients/${p!.clientId}`), enabled: !!p });
+  const settings = useSettingsQuery(owner);
+  const lastReminders: Record<string, string> = {};
+  for (const a of data?.activity ?? []) {
+    const planId = (a.detail as { planId?: string } | null)?.planId;
+    if (a.action === "reminder" && planId && !lastReminders[planId]) lastReminders[planId] = a.at;
+  }
+  const sendProgress = async () => {
+    const c = client.data?.client;
+    if (!c || !p || !settings.data) return;
+    const tab = c.phone ? window.open("about:blank", "_blank") : null;
+    const url = await getPortalUrl(c.id);
+    const sent = openWhatsApp(c.phone, fillTemplate(settings.data.settings.templates.progress, progressVars(p, c.name, url)), tab);
+    await logReminder("project", p.id, "progress");
+    qc.invalidateQueries({ queryKey: ["project", id] });
+    if (!sent) toast.success("El cliente no tiene WhatsApp: copiamos el mensaje.");
+  };
 
   const setProject = (r: { project: Project }) => {
     qc.setQueryData(["project", id], (old: object | undefined) => ({ ...(old ?? {}), project: r.project }));
@@ -127,15 +148,21 @@ export default function ProjectDetail() {
           </p>
         </div>
         {owner && (
-          <Button
-            variant="outline"
-            onClick={async () => {
-              const url = await getPortalUrl(p.clientId);
-              window.open(url, "_blank");
-            }}
-          >
-            <ExternalLink className="h-4 w-4" /> Ver como cliente
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button className="bg-[#1FA855] hover:bg-[#1A8F49]" onClick={sendProgress} disabled={!client.data || !settings.data}>
+              <MessageCircle className="h-4 w-4" /> Enviar avance
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                const tab = window.open("about:blank", "_blank");
+                const url = await getPortalUrl(p.clientId);
+                if (tab) tab.location.href = url;
+              }}
+            >
+              <ExternalLink className="h-4 w-4" /> Ver como cliente
+            </Button>
+          </div>
         )}
       </div>
 
@@ -176,6 +203,8 @@ export default function ProjectDetail() {
           })}
         </CardContent>
       </Card>
+
+      {owner && client.data && <PaymentsCard projectId={p.id} client={client.data.client} lastReminders={lastReminders} />}
 
       <Card>
         <CardHeader className="pb-2">

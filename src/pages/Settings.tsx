@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PhaseTemplatesCard, SettingsBusiness } from "@/components/SettingsBusiness";
+import { TemplatesCard } from "@/components/TemplatesCard";
 import { apiGet, apiSend } from "@/lib/api";
 import { errorMessage } from "@/lib/labels";
 
@@ -41,6 +42,7 @@ export default function Settings() {
       <h1 className="text-2xl font-bold">Ajustes</h1>
 
       <SettingsBusiness />
+      <TemplatesCard />
       <PhaseTemplatesCard />
 
       <Card>

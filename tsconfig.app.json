@@ -32,6 +32,7 @@
     "src",
     "shared",
     "test/api-client.test.ts",
-    "test/labels.test.ts"
+    "test/labels.test.ts",
+    "test/whatsapp.test.ts"
   ]
 }

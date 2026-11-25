@@ -1,0 +1,34 @@
+import { expect, it } from "vitest";
+import { fillTemplate, DEFAULT_TEMPLATES } from "../shared/templates";
+import { paymentVars, progressVars } from "../src/lib/whatsapp";
+import type { PaymentPlan, Project } from "../shared/types";
+
+const settings = { payment: { brebKey: "3058147293", bank: "Davibank", usdText: "" } };
+const url = "https://clientes.sdtechsystems.dev/c/abc";
+
+it("fills the payment reminder", () => {
+  const plan = { label: "Anticipo", amount: 385000, paidAmount: 0, dueDate: "2026-12-13" } as PaymentPlan;
+  const vars = paymentVars(plan, "COP", "María Gómez", settings, url);
+  expect(fillTemplate(DEFAULT_TEMPLATES.payment, vars)).toBe(
+    "Hola María, te recuerdo el pago de Anticipo por $ 385.000, acordado para el 13 de diciembre de 2026. Puedes pagar con la llave Bre-B 3058147293 (Davibank). Aquí ves el detalle: https://clientes.sdtechsystems.dev/c/abc. ¡Gracias!",
+  );
+});
+
+it("asks only for what is still missing on a partly paid commitment", () => {
+  const plan = { label: "Anticipo", amount: 385000, paidAmount: 200000, dueDate: "2026-12-13" } as PaymentPlan;
+  expect(paymentVars(plan, "COP", "María Gómez", settings, url).monto).toBe("$ 185.000");
+});
+
+it("fills the progress message with the current phase", () => {
+  const project = {
+    title: "Landing page",
+    progress: 38,
+    phases: [
+      { name: "Contenido", status: "done", parentId: null },
+      { name: "Maqueta", status: "in_progress", parentId: null },
+    ],
+  } as unknown as Project;
+  expect(fillTemplate(DEFAULT_TEMPLATES.progress, progressVars(project, "María Gómez", url))).toBe(
+    "Hola María, te cuento cómo va Landing page: ya estamos en «Maqueta» (38%). Puedes verlo aquí: https://clientes.sdtechsystems.dev/c/abc",
+  );
+});
