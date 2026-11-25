@@ -32,3 +32,6 @@ export function parseMoneyInput(text: string, currency: Currency): number | null
   if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) return null;
   return Math.round(Number(cleaned) * 100);
 }
+
+/** 150000 → "+ $ 150.000"; -120000 → "− $ 120.000" (signo menos tipográfico). */
+export const signedMoney = (amount: number, currency: Currency): string => `${amount < 0 ? "−" : "+"} ${formatMoney(Math.abs(amount), currency)}`;

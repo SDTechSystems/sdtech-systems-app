@@ -1,7 +1,7 @@
 import { dayOf, formatLongDate, meetingDayLabel, meetingTimeLabel } from "../../shared/dates";
-import { formatMoney } from "../../shared/money";
+import { formatMoney, signedMoney } from "../../shared/money";
 import { waLink } from "../../shared/phone";
-import type { Meeting, PaymentSummary, Project, Quote, Settings } from "../../shared/types";
+import type { ChangeRequest, Meeting, PaymentSummary, Project, Quote, Settings } from "../../shared/types";
 import { esc, page } from "./html";
 
 export interface PortalData {
@@ -10,6 +10,7 @@ export interface PortalData {
   quotes: Quote[];
   projects: Project[];
   payments: Record<string, PaymentSummary>;
+  changes: Record<string, ChangeRequest[]>;
   meetings: Meeting[];
   settings: Settings;
 }
@@ -69,6 +70,7 @@ input:focus,textarea:focus{border-color:var(--cyan);outline:none}
 .sum div{background:#0a1729;border:1px solid var(--line);border-radius:12px;padding:10px 4px}.sum span{display:block;font:.6rem "SD Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--soft)}.sum b{font-size:.95rem;white-space:nowrap}
 .plans{list-style:none;padding:0;margin:12px 0 0}.plans li{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px dashed var(--line);font-size:.92rem}
 .plans .st{font-size:.8rem;color:var(--soft)}.plans .overdue{color:#fb7185;font-weight:700}.plans .paid{color:#34d399}
+.change{border:1px solid #3a5f95;border-radius:14px;padding:12px;margin-top:10px;background:rgba(37,99,235,.08)}.change form{border-top:0;padding-top:0}
 .key{margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border:1px solid var(--cyan);background:rgba(0,189,232,.08);border-radius:14px;padding:12px 14px;font-weight:700;color:var(--white)}
 footer{text-align:center;color:var(--soft);font-size:.85rem;margin-top:48px;border-top:1px solid var(--line);padding-top:22px}
 footer .wa{display:inline-flex;align-items:center;gap:8px;margin-bottom:12px;background:#0f5c34;border:1px solid #1b8a4c;color:#fff;border-radius:999px;padding:11px 18px;text-decoration:none}
@@ -84,15 +86,16 @@ document.querySelectorAll("form[data-action]").forEach(function(f){
   f.addEventListener("submit",async function(e){
     e.preventDefault();
     var btn=e.submitter, action=btn&&btn.value||"approve", msg=f.querySelector(".msg");
-    var data={name:(f.elements.name||{}).value||"",comment:(f.elements.comment||{}).value||""};
-    if(action==="approve"&&data.name.trim().length<2){msg.textContent="Escribe tu nombre para aprobar.";return}
-    if(action==="reject"&&!confirm("¿Seguro que no quieres aprobar esta cotización?"))return;
+    var data={};new FormData(f).forEach(function(v,k){data[k]=String(v)});
+    if(action==="approve"&&(data.name||"").trim().length<2){msg.textContent="Escribe tu nombre para aprobar.";return}
+    if(action==="adjustments"&&(data.text||"").trim().length<3){msg.textContent="Cuéntanos qué quieres ajustar.";return}
+    if(action==="reject"&&!confirm("¿Seguro que no quieres aprobarlo?"))return;
     btn.disabled=true;msg.textContent="";
     try{
       var r=await fetch(f.dataset.action+"/"+action,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(data)});
       if(r.ok){location.reload();return}
       var j=await r.json().catch(function(){return{}});
-      msg.textContent=j.error==="not_approvable"?"Esta cotización ya no se puede aprobar. Escríbenos por WhatsApp.":"No se pudo guardar. Intenta de nuevo.";
+      msg.textContent=j.error==="not_approvable"||j.error==="already_decided"?"Esto ya no se puede aprobar. Recarga la página o escríbenos por WhatsApp.":"No se pudo guardar. Intenta de nuevo.";
     }catch(err){msg.textContent="Sin conexión. Intenta de nuevo."}
     btn.disabled=false;
   });
@@ -133,9 +136,34 @@ function paymentsBlock(pay: PaymentSummary, settings: Settings): string {
   return `<div class="pay"><h3>Pagos</h3><div class="sum"><div><span>Total</span><b>${m(pay.total)}</b></div><div><span>Pagado</span><b>${m(pay.paid)}</b></div><div><span>Saldo</span><b>${m(Math.max(pay.balance, 0))}</b></div></div>${plans ? `<ul class="plans">${plans}</ul>` : ""}${key}</div>`;
 }
 
-function projectCard(p: Project, pay: PaymentSummary | undefined, settings: Settings): string {
+const ADJ_STATUS: Record<string, string> = { pending: "Recibido", resolved: "Hecho", converted: "Cotizado" };
+
+function changesBlock(p: Project, changes: ChangeRequest[], token: string, currency: PaymentSummary["currency"]): string {
+  const pending = changes.filter((c) => c.kind === "cost" && c.status === "pending");
+  const approved = changes.filter((c) => c.kind === "cost" && c.status === "approved");
+  const adjustments = changes.filter((c) => c.kind === "adjustment");
+  const pendingHtml = pending
+    .map(
+      (c) => `<div class="change"><div class="row"><span>${esc(c.description)}</span><b>${esc(signedMoney(c.amount ?? 0, currency))}</b></div>
+<form data-action="/api/portal/${esc(token)}/changes/${esc(c.id)}"><label for="cn-${esc(c.id)}">Tu nombre</label><input id="cn-${esc(c.id)}" name="name" autocomplete="name" maxlength="80">
+<label for="cc-${esc(c.id)}">Comentario (opcional)</label><textarea id="cc-${esc(c.id)}" name="comment" rows="2" maxlength="1000"></textarea>
+<div class="actions"><button class="btn primary" value="approve">Aprobar cambio</button><button class="btn ghost" value="reject" formnovalidate>No lo apruebo</button></div><div class="msg" role="alert"></div></form></div>`,
+    )
+    .join("");
+  const approvedHtml = approved
+    .map((c) => `<li><span>${esc(c.description)}</span><span><b>${esc(signedMoney(c.amount ?? 0, currency))}</b> <span class="st">${c.decidedBy === "client" && c.approvedName ? `aprobado por ${esc(c.approvedName)}` : "aprobado"}${c.decidedAt ? ` el ${esc(formatLongDate(dayOf(c.decidedAt)))}` : ""}</span></span></li>`)
+    .join("");
+  const adjHtml = adjustments.map((c) => `<li><span>${esc(c.description)}</span><span class="st">${ADJ_STATUS[c.status] ?? ""}</span></li>`).join("");
+  return `${pending.length ? `<div class="pay"><h3>Cambios por aprobar</h3>${pendingHtml}</div>` : ""}
+${approved.length ? `<div class="pay"><h3>Cambios aprobados</h3><ul class="plans">${approvedHtml}</ul></div>` : ""}
+<div class="pay"><h3>Pedir un ajuste</h3>${adjHtml ? `<ul class="plans">${adjHtml}</ul>` : ""}
+<form data-action="/api/portal/${esc(token)}/projects/${esc(p.id)}"><label for="adj-${esc(p.id)}">¿Qué te gustaría cambiar?</label><textarea id="adj-${esc(p.id)}" name="text" rows="2" maxlength="1000"></textarea>
+<div class="actions"><button class="btn" value="adjustments">Enviar pedido</button></div><div class="msg" role="alert"></div></form></div>`;
+}
+
+function projectCard(p: Project, pay: PaymentSummary | undefined, settings: Settings, changes: ChangeRequest[] = [], token = ""): string {
   return `<div class="card"><div class="row"><div><strong>${esc(p.title)}</strong><div class="muted">${p.dueDate ? `Entrega estimada: ${esc(formatLongDate(p.dueDate))}` : "Fecha de entrega por definir"}</div></div><span class="badge${p.status === "delivered" ? " ok" : p.status === "active" ? "" : " off"}">${PROJECT_STATUS[p.status]}</span></div>
-<div class="bar" role="progressbar" aria-valuenow="${p.progress}" aria-valuemin="0" aria-valuemax="100"><span style="width:${p.progress}%"></span></div><div class="muted">${p.progress}% completado</div>${phaseList(p)}${pay && pay.total > 0 ? paymentsBlock(pay, settings) : ""}</div>`;
+<div class="bar" role="progressbar" aria-valuenow="${p.progress}" aria-valuemin="0" aria-valuemax="100"><span style="width:${p.progress}%"></span></div><div class="muted">${p.progress}% completado</div>${phaseList(p)}${pay && pay.total > 0 ? paymentsBlock(pay, settings) : ""}${p.status === "cancelled" ? "" : changesBlock(p, changes, token, pay?.currency ?? "COP")}</div>`;
 }
 
 function quoteCard(q: Quote, base: string): string {
@@ -170,7 +198,7 @@ export function renderPortal(d: PortalData): Response {
     .join("");
   const sections = [
     d.meetings.length ? { title: "Próximas reuniones", html: meetingsHtml } : null,
-    d.projects.length ? { title: "Tus proyectos", html: d.projects.map((p) => projectCard(p, d.payments[p.id], d.settings)).join("") } : null,
+    d.projects.length ? { title: "Tus proyectos", html: d.projects.map((p) => projectCard(p, d.payments[p.id], d.settings, d.changes[p.id], d.token)).join("") } : null,
     d.quotes.length ? { title: "Tus cotizaciones", html: d.quotes.map((q) => quoteCard(q, d.token)).join("") } : null,
   ].filter((s): s is { title: string; html: string } => !!s);
   const body = `<header><img src="/brand/logo-white.svg" alt="SD Tech Systems"><span>SEGUIMIENTO</span></header><main class="arrive">

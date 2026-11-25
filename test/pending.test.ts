@@ -145,4 +145,18 @@ describe("pending", () => {
     expect(p.meetings.map((m) => m.title)).toEqual(["Hoy en la noche", "Mañana"]);
     expect(p.google).toEqual({ status: "disconnected" });
   });
+
+  it("shows adjustment requests from the portal as news", async () => {
+    const env = await makeEnv();
+    const { projectId } = await approvedProject(env);
+    const c = (await env.DB.prepare("SELECT client_id FROM projects WHERE id = ?").bind(projectId).first<{ client_id: string }>())!.client_id;
+    const url = ((await (await handleClients(jsonRequest("POST", `${B}/clients/${c}/portal-link`, {}), env, owner, ["clients", c, "portal-link"])).json()) as { url: string }).url;
+    await worker.fetch(
+      new Request(`https://clientes.sdtechsystems.dev/api/portal/${url.split("/c/")[1]}/projects/${projectId}/adjustments`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: "Otro tono de azul" }) }),
+      env,
+      {} as ExecutionContext,
+    );
+    const news = kinds(await pending(env, owner, null), "portal");
+    expect(news.map((n) => n.title)).toContain("María Gómez pidió un ajuste en Landing page");
+  });
 });

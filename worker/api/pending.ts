@@ -5,6 +5,7 @@ import { error, json, now, readJson } from "../http";
 import { PORTAL_ACTOR } from "../portal/api";
 import { getSettings } from "../settings";
 import { googleStatus } from "../google/oauth";
+import { signedMoney } from "../../shared/money";
 import { listMeetings } from "./meetings";
 
 const ORDER: Record<Urgency, number> = { overdue: 0, today: 1, soon: 2, info: 3 };
@@ -136,6 +137,38 @@ export const handlePending: Handler = async (request, env, session, path) => {
       link: `/cotizaciones/${n.quote_id}`,
       ...clientOf(n),
       quoteId: n.quote_id,
+    });
+  }
+
+  const projectNews = await db
+    .prepare(
+      `SELECT a.action, a.at, a.detail, p.id AS project_id, p.title, p.currency, c.id AS client_id, c.name AS client_name, c.phone AS client_phone
+       FROM activity_log a JOIN projects p ON p.id = a.entity_id JOIN clients c ON c.id = p.client_id
+       WHERE a.actor = ? AND a.entity_type = 'project' AND a.action IN ('adjustment_requested','change_approved','change_rejected') AND a.at > ? ORDER BY a.at DESC`,
+    )
+    .bind(PORTAL_ACTOR, since)
+    .all<ClientCols & { action: string; at: string; detail: string | null; project_id: string; title: string; currency: Currency | null }>();
+  for (const n of projectNews.results) {
+    const d = (n.detail ? JSON.parse(n.detail) : {}) as { description?: string; amount?: number; name?: string | null; comment?: string | null };
+    if (!owner && n.action !== "adjustment_requested") continue;
+    const who = d.name ?? n.client_name;
+    const title =
+      n.action === "adjustment_requested"
+        ? `${n.client_name} pidió un ajuste en ${n.title}`
+        : n.action === "change_approved"
+          ? `${who} aprobó un cambio de ${signedMoney(d.amount ?? 0, n.currency ?? "COP")}`
+          : n.action === "change_rejected"
+            ? `${n.client_name} rechazó un cambio`
+            : `${n.client_name}: ${n.action}`;
+    items.push({
+      kind: "portal",
+      title,
+      subtitle: d.comment ? `«${d.comment}»` : d.description ? `«${d.description}»` : n.title,
+      date: dayOf(n.at),
+      urgency: "info",
+      link: `/proyectos/${n.project_id}`,
+      ...clientOf(n),
+      projectId: n.project_id,
     });
   }
 

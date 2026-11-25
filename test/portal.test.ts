@@ -3,6 +3,7 @@ import worker from "../worker/index";
 import { handleClients } from "../worker/api/clients";
 import { handleQuotes } from "../worker/api/quotes";
 import { handleProjectPayments } from "../worker/api/payments";
+import { handleProjects } from "../worker/api/projects";
 import type { Session } from "../worker/auth/session";
 import type { Client, Quote } from "../shared/types";
 import { jsonRequest, makeEnv, OWNER } from "./helpers";
@@ -178,5 +179,59 @@ describe("client portal", () => {
     expect(htmlA).not.toContain("Todavía no hay nada por aquí");
     const htmlB = await (await fetchPortal(env, await portalUrl(env, b.id))).text();
     expect(htmlB).not.toContain("Revisión de maqueta");
+  });
+
+  describe("changes and adjustments", () => {
+    async function setupProject(env: Awaited<ReturnType<typeof makeEnv>>) {
+      const c = await newClient(env, "María Gómez");
+      const q = await sentQuote(env, c.id);
+      const token = tokenOf(await portalUrl(env, c.id));
+      await approve(env, token, q.id, { name: "María Gómez" });
+      const projectId = (await env.DB.prepare("SELECT project_id FROM quotes WHERE id = ?").bind(q.id).first<{ project_id: string }>())!.project_id;
+      return { c, token, projectId };
+    }
+    const post = (env: Awaited<ReturnType<typeof makeEnv>>, path: string, body: unknown) =>
+      fetchPortal(env, `${P}/api/portal/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+    it("lets the client request an adjustment, shown escaped", async () => {
+      const env = await makeEnv();
+      const { token, projectId } = await setupProject(env);
+      const r = await post(env, `${token}/projects/${projectId}/adjustments`, { text: "Cambiar el color del botón <b>" });
+      expect(r.status).toBe(201);
+      const html = await (await fetchPortal(env, `${P}/c/${token}`)).text();
+      expect(html).toContain("Cambiar el color del botón &lt;b&gt;");
+      expect(html).toContain("Recibido");
+      expect((await post(env, `${token}/projects/${projectId}/adjustments`, { text: "ok" })).status).toBe(400);
+    });
+
+    it("lets the client approve a cost change once and updates the total", async () => {
+      const env = await makeEnv();
+      const { token, projectId } = await setupProject(env);
+      const created = await handleProjects(jsonRequest("POST", `${B}/projects/${projectId}/changes`, { description: "Sección de blog", amount: 150000 }), env, owner, ["projects", projectId, "changes"]);
+      const changeId = ((await created.json()) as { change: { id: string } }).change.id;
+      let html = await (await fetchPortal(env, `${P}/c/${token}`)).text();
+      expect(html).toContain("Cambios por aprobar");
+      expect(html).toContain("+ $ 150.000");
+      expect((await post(env, `${token}/changes/${changeId}/approve`, { name: "" })).status).toBe(400);
+      expect((await post(env, `${token}/changes/${changeId}/approve`, { name: "María Gómez", comment: "De acuerdo" })).status).toBe(200);
+      expect((await post(env, `${token}/changes/${changeId}/approve`, { name: "María Gómez" })).status).toBe(409);
+      html = await (await fetchPortal(env, `${P}/c/${token}`)).text();
+      expect(html).toContain("$ 1.040.000");
+      expect(html).toContain("Cambios aprobados");
+      const row = await env.DB.prepare("SELECT decided_by, approved_name, snapshot FROM change_requests WHERE id = ?").bind(changeId).first<Record<string, string>>();
+      expect(row).toMatchObject({ decided_by: "client", approved_name: "María Gómez" });
+      expect(JSON.parse(row!.snapshot)).toMatchObject({ description: "Sección de blog", amount: 150000, approvedName: "María Gómez", comment: "De acuerdo" });
+    });
+
+    it("does not let another client's link touch the project", async () => {
+      const env = await makeEnv();
+      const { projectId } = await setupProject(env);
+      const other = await newClient(env, "Bruno Ruiz");
+      const otherToken = tokenOf(await portalUrl(env, other.id));
+      const created = await handleProjects(jsonRequest("POST", `${B}/projects/${projectId}/changes`, { description: "Blog", amount: 1000 }), env, owner, ["projects", projectId, "changes"]);
+      const changeId = ((await created.json()) as { change: { id: string } }).change.id;
+      expect((await post(env, `${otherToken}/projects/${projectId}/adjustments`, { text: "Hola mundo" })).status).toBe(404);
+      expect((await post(env, `${otherToken}/changes/${changeId}/approve`, { name: "Bruno Ruiz" })).status).toBe(404);
+    });
   });
 });
