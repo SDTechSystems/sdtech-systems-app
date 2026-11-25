@@ -70,4 +70,15 @@ export const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS idx_change_requests_project ON change_requests (project_id, created_at)`,
     ],
   },
+  {
+    id: "0006_subscriptions_invoices",
+    statements: [
+      `CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, project_id TEXT, kind TEXT NOT NULL CHECK(kind IN ('hosting','dominio','mantenimiento','soporte','otro')), name TEXT NOT NULL, amount INTEGER NOT NULL CHECK(amount > 0), currency TEXT NOT NULL DEFAULT 'COP' CHECK(currency IN ('COP','USD')), cycle TEXT NOT NULL CHECK(cycle IN ('mensual','anual')), next_due TEXT NOT NULL, provider TEXT, notes TEXT, status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused','cancelled')), last_paid_on TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`,
+      `CREATE INDEX IF NOT EXISTS idx_subscriptions_due ON subscriptions (status, next_due)`,
+      `CREATE INDEX IF NOT EXISTS idx_subscriptions_client ON subscriptions (client_id)`,
+      `CREATE TABLE IF NOT EXISTS invoices (id TEXT PRIMARY KEY, number TEXT NOT NULL UNIQUE, project_id TEXT NOT NULL, client_id TEXT NOT NULL, issued_at TEXT NOT NULL, currency TEXT NOT NULL, snapshot TEXT NOT NULL, total INTEGER NOT NULL, paid INTEGER NOT NULL, balance INTEGER NOT NULL, verify_code TEXT NOT NULL UNIQUE, voided_at TEXT, created_at TEXT NOT NULL)`,
+      `CREATE INDEX IF NOT EXISTS idx_invoices_project ON invoices (project_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_invoices_client ON invoices (client_id)`,
+    ],
+  },
 ];

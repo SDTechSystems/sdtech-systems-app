@@ -164,7 +164,7 @@ export interface PaymentSummary {
   payments: Payment[];
 }
 
-export type PendingKind = "payment" | "delivery" | "phase" | "quote_expiring" | "quote_expired" | "portal" | "stale";
+export type PendingKind = "payment" | "delivery" | "phase" | "quote_expiring" | "quote_expired" | "portal" | "stale" | "subscription";
 export type Urgency = "overdue" | "today" | "soon" | "info";
 
 export interface PendingItem {
@@ -180,6 +180,7 @@ export interface PendingItem {
   projectId?: string;
   quoteId?: string;
   planId?: string;
+  subscriptionId?: string;
   amount?: number;
   currency?: Currency;
   lastReminderAt?: string | null;
@@ -189,7 +190,6 @@ export interface Pending {
   today: string;
   items: PendingItem[];
   meetings: Meeting[];
-  subscriptions: never[];
   google: { status: "disconnected" | "ok" | "reconnect" };
 }
 
@@ -225,4 +225,25 @@ export interface ChangeRequest {
   clientComment: string | null;
   createdAt: string;
   decidedAt: string | null;
+}
+
+export type SubscriptionKind = "hosting" | "dominio" | "mantenimiento" | "soporte" | "otro";
+export type SubscriptionStatus = "active" | "paused" | "cancelled";
+
+export interface Subscription {
+  id: string;
+  clientId: string;
+  clientName: string;
+  clientPhone: string | null;
+  projectId: string | null;
+  kind: SubscriptionKind;
+  name: string;
+  amount: number;
+  currency: Currency;
+  cycle: "mensual" | "anual";
+  nextDue: string;
+  provider: string | null;
+  notes: string | null;
+  status: SubscriptionStatus;
+  lastPaidOn: string | null;
 }

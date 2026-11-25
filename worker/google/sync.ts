@@ -52,6 +52,16 @@ export async function desiredEvents(db: D1Database): Promise<Map<string, EventSp
       date: pl.due_date,
     });
   }
+  const subs = await db
+    .prepare("SELECT s.id, s.name, s.amount, s.currency, s.next_due, c.id AS client_id, c.name AS client_name FROM subscriptions s JOIN clients c ON c.id = s.client_id WHERE s.status = 'active'")
+    .all<{ id: string; name: string; amount: number; currency: Currency; next_due: string; client_id: string; client_name: string }>();
+  for (const s of subs.results) {
+    out.set(`subscription:${s.id}`, {
+      summary: `Cobro suscripción: ${s.name} ${formatMoney(s.amount, s.currency)} · ${s.client_name}`,
+      description: `${PANEL}/clientes/${s.client_id}`,
+      date: s.next_due,
+    });
+  }
   return out;
 }
 

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Bell, CalendarClock, FileText, Flag, Hourglass, MessageCircle, Wallet } from "lucide-react";
+import { AlertTriangle, Bell, CalendarClock, FileText, Flag, Hourglass, MessageCircle, Repeat, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { formatMoney } from "../../shared/money";
 import { fillTemplate } from "../../shared/templates";
@@ -22,6 +22,7 @@ const ICON: Record<PendingKind, typeof Wallet> = {
   quote_expired: FileText,
   portal: Bell,
   stale: Hourglass,
+  subscription: Repeat,
 };
 const GROUPS: { key: Urgency; label: string; tone: string }[] = [
   { key: "overdue", label: "Vencidos", tone: "border-l-rose-400" },

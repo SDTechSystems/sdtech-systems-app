@@ -186,8 +186,33 @@ export const handlePending: Handler = async (request, env, session, path) => {
   }
 
   items.sort((a, b) => ORDER[a.urgency] - ORDER[b.urgency] || (a.date ?? "9999").localeCompare(b.date ?? "9999"));
+  if (owner) {
+    const subs = await db
+      .prepare(
+        `SELECT s.id, s.name, s.amount, s.currency, s.next_due, c.id AS client_id, c.name AS client_name, c.phone AS client_phone
+         FROM subscriptions s JOIN clients c ON c.id = s.client_id WHERE s.status = 'active' AND s.next_due <= ?`,
+      )
+      .bind(soon)
+      .all<ClientCols & { id: string; name: string; amount: number; currency: Currency; next_due: string }>();
+    for (const s of subs.results) {
+      items.push({
+        kind: "subscription",
+        title: `Cobro: ${s.name}`,
+        subtitle: s.client_name,
+        date: s.next_due,
+        urgency: urgencyOf(s.next_due, today),
+        link: `/clientes/${s.client_id}`,
+        ...clientOf(s),
+        subscriptionId: s.id,
+        amount: s.amount,
+        currency: s.currency,
+      });
+    }
+    items.sort((a, b) => ORDER[a.urgency] - ORDER[b.urgency] || (a.date ?? "9999").localeCompare(b.date ?? "9999"));
+  }
+
   const meetings = await listMeetings(db, { fromDate: today, toDate: addDays(today, 1) });
   const google = { status: (await googleStatus(db)).status };
-  const result: Pending = { today, items, meetings, subscriptions: [], google };
+  const result: Pending = { today, items, meetings, google };
   return json(result);
 };
