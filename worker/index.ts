@@ -1,6 +1,7 @@
 import { handleCatalog } from "./api/catalog";
 import { handleClients } from "./api/clients";
 import { handleMe } from "./api/me";
+import { handlePending } from "./api/pending";
 import { handleReminders } from "./api/reminders";
 import { handlePaymentPlans, handlePayments } from "./api/payments";
 import { handlePhases, handleProjects } from "./api/projects";
@@ -28,6 +29,7 @@ const ADMIN: Record<string, Handler> = {
   "payment-plans": handlePaymentPlans,
   payments: handlePayments,
   reminders: handleReminders,
+  pending: handlePending,
 };
 
 export default {

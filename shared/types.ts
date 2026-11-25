@@ -156,3 +156,31 @@ export interface PaymentSummary {
   plans: PaymentPlan[];
   payments: Payment[];
 }
+
+export type PendingKind = "payment" | "delivery" | "phase" | "quote_expiring" | "quote_expired" | "portal" | "stale";
+export type Urgency = "overdue" | "today" | "soon" | "info";
+
+export interface PendingItem {
+  kind: PendingKind;
+  title: string;
+  subtitle: string;
+  date: string | null;
+  urgency: Urgency;
+  link: string;
+  clientId: string;
+  clientName: string;
+  clientPhone: string | null;
+  projectId?: string;
+  quoteId?: string;
+  planId?: string;
+  amount?: number;
+  currency?: Currency;
+  lastReminderAt?: string | null;
+}
+
+export interface Pending {
+  today: string;
+  items: PendingItem[];
+  meetings: never[];
+  subscriptions: never[];
+}
