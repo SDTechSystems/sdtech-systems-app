@@ -175,6 +175,7 @@ describe("client portal", () => {
     expect(htmlA).toContain("Revisión de maqueta");
     expect(htmlA).toContain("7:30");
     expect(htmlA).toContain("https://meet.google.com/abc-defg-hij");
+    expect(htmlA).not.toContain("Todavía no hay nada por aquí");
     const htmlB = await (await fetchPortal(env, await portalUrl(env, b.id))).text();
     expect(htmlB).not.toContain("Revisión de maqueta");
   });

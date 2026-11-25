@@ -7,6 +7,7 @@ import { waLink } from "../../shared/phone";
 import type { ActivityEntry, Client } from "../../shared/types";
 import { ClientForm } from "@/components/ClientForm";
 import { PortalLinkCard } from "@/components/PortalLinkCard";
+import { MeetingsCard } from "@/components/MeetingsCard";
 import { QuoteBadge } from "@/components/StatusBadge";
 import { ProjectCard } from "@/pages/Projects";
 import { formatMoney } from "../../shared/money";
@@ -115,6 +116,8 @@ export default function ClientDetail() {
           )}
         </CardContent>
       </Card>
+
+      <MeetingsCard client={client} />
 
       {owner && <PortalLinkCard clientId={client.id} />}
 

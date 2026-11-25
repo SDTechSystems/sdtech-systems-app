@@ -32,3 +32,11 @@ it("fills the progress message with the current phase", () => {
     "Hola María, te cuento cómo va Landing page: ya estamos en «Maqueta» (38%). Puedes verlo aquí: https://clientes.sdtechsystems.dev/c/abc",
   );
 });
+
+it("fills the meeting reminder in Bogotá time", async () => {
+  const { meetingVars } = await import("../src/lib/whatsapp");
+  const meeting = { startAt: "2026-12-10T19:30:00-05:00", meetUrl: "https://meet.google.com/abc-defg-hij" } as Parameters<typeof meetingVars>[0];
+  expect(fillTemplate(DEFAULT_TEMPLATES.meeting, meetingVars(meeting, "María Gómez"))).toBe(
+    "Hola María, te recuerdo nuestra reunión el jueves 10 de diciembre a las 19:30. Enlace: https://meet.google.com/abc-defg-hij",
+  );
+});

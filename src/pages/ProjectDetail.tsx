@@ -8,6 +8,7 @@ import { formatMoney } from "../../shared/money";
 import { fillTemplate } from "../../shared/templates";
 import type { ActivityEntry, Client, Phase, PhaseStatus, Project, ProjectStatus } from "../../shared/types";
 import { PaymentsCard } from "@/components/PaymentsCard";
+import { MeetingsCard } from "@/components/MeetingsCard";
 import { useSettingsQuery } from "@/lib/useSettings";
 import { logReminder, openWhatsApp, progressVars } from "@/lib/whatsapp";
 import { PhaseIcon, ProgressBar, ProjectBadge } from "@/components/StatusBadge";
@@ -204,6 +205,8 @@ export default function ProjectDetail() {
           })}
         </CardContent>
       </Card>
+
+      {client.data && <MeetingsCard client={client.data.client} projectId={p.id} defaultTitle={`Reunión: ${p.title}`} />}
 
       {owner && client.data && <PaymentsCard projectId={p.id} client={client.data.client} lastReminders={lastReminders} />}
 

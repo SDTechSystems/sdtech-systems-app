@@ -1,8 +1,8 @@
-import { formatLongDate } from "../../shared/dates";
+import { formatLongDate, meetingDayLabel, meetingTime24Label } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
 import { waLink } from "../../shared/phone";
 import type { TemplateKey } from "../../shared/templates";
-import type { Currency, PaymentPlan, Project, Settings } from "../../shared/types";
+import type { Currency, Meeting, PaymentPlan, Project, Settings } from "../../shared/types";
 import { apiSend } from "./api";
 import { firstName } from "./labels";
 
@@ -42,3 +42,7 @@ export function openWhatsApp(phone: string | null, text: string, tab: Window | n
 
 export const logReminder = (entityType: "project" | "quote" | "payment_plan" | "client", entityId: string, kind: TemplateKey) =>
   apiSend("POST", "/api/admin/reminders", { entityType, entityId, kind }).catch(() => undefined);
+
+export function meetingVars(meeting: Pick<Meeting, "startAt" | "meetUrl">, clientName: string) {
+  return { nombre: firstName(clientName), fecha: meetingDayLabel(meeting.startAt), hora: meetingTime24Label(meeting.startAt), meet: meeting.meetUrl ?? "" };
+}

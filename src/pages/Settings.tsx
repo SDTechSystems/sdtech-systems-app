@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { PhaseTemplatesCard, SettingsBusiness } from "@/components/SettingsBusiness";
 import { TemplatesCard } from "@/components/TemplatesCard";
+import { GoogleCalendarCard } from "@/components/GoogleCalendarCard";
 import { apiGet, apiSend } from "@/lib/api";
 import { errorMessage } from "@/lib/labels";
 
@@ -41,6 +42,7 @@ export default function Settings() {
     <div className="space-y-5">
       <div><p className="sd-eyebrow mb-3">05 / Ajustes</p><h1 className="sd-title sd-caret text-[2rem] sm:text-5xl">Ajustes</h1></div>
 
+      <GoogleCalendarCard />
       <SettingsBusiness />
       <TemplatesCard />
       <PhaseTemplatesCard />

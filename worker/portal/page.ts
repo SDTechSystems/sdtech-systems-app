@@ -177,7 +177,7 @@ export function renderPortal(d: PortalData): Response {
 <p class="eyebrow">Tu página de seguimiento</p>
 <h1>Hola, <em class="caret">${esc(first)}</em></h1><p class="lead">Aquí ves tus cotizaciones y el avance de tus proyectos con ${esc(company.name)}.</p>
 ${sections.map((s, i) => `<h2 data-n="${String(i + 1).padStart(2, "0")}">${s.title}</h2><div class="stagger">${s.html}</div>`).join("")}
-${!d.projects.length && !d.quotes.length ? `<div class="card"><p class="lead">Todavía no hay nada por aquí. Te avisaremos cuando tengamos tu cotización.</p></div>` : ""}
+${!d.projects.length && !d.quotes.length && !d.meetings.length ? `<div class="card"><p class="lead">Todavía no hay nada por aquí. Te avisaremos cuando tengamos tu cotización.</p></div>` : ""}
 <footer><a class="wa" href="${esc(waLink(phoneDigits, `Hola, soy ${d.client.name}. `))}">¿Dudas? Escríbenos por WhatsApp</a><br><a href="https://${esc(company.website)}">${esc(company.website)}</a><br><span>Este enlace es personal; no lo compartas.</span></footer>
 </main>`;
   return page(`${company.name} · ${d.client.name}`, body, { css: CSS, script: SCRIPT });
