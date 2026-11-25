@@ -1,3 +1,4 @@
+import { handleCatalog } from "./api/catalog";
 import { handleClients } from "./api/clients";
 import { handleMe } from "./api/me";
 import { handleUsers } from "./api/users";
@@ -13,6 +14,7 @@ const ADMIN: Record<string, Handler> = {
   me: handleMe,
   users: handleUsers,
   clients: handleClients,
+  catalog: handleCatalog,
 };
 
 export default {
