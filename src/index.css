@@ -96,7 +96,7 @@
   textarea,
   select,
   button[role="combobox"] {
-    scroll-margin-block: 24px 96px;
+    scroll-margin-block: 24px 140px;
   }
   input[type="date"]::-webkit-calendar-picker-indicator {
     filter: invert(0.8);

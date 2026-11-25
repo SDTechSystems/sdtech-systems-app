@@ -31,6 +31,7 @@
   "exclude": [
     "test/api-client.test.ts",
     "test/labels.test.ts",
-    "test/whatsapp.test.ts"
+    "test/whatsapp.test.ts",
+    "test/keyboard-scroll.test.ts"
   ]
 }
