@@ -1,6 +1,7 @@
 import { logActivity } from "../activity";
 import type { Env } from "../env";
 import { error, json, now, readJson } from "../http";
+import { loadPayments } from "../payments/repo";
 import { listProjects } from "../projects/repo";
 import { approveQuote } from "../quotes/approve";
 import { listQuotes, loadQuote } from "../quotes/repo";
@@ -36,7 +37,8 @@ export async function handlePortalPage(env: Env, token: string, sub: string[]): 
   if (sub.length) return invalidLinkPage();
 
   const projects = await listProjects(env.DB, { clientId: client.id, statuses: ["active", "paused", "delivered"] }, true);
-  return renderPortal({ token, client, quotes, projects, settings });
+  const payments = Object.fromEntries(await Promise.all(projects.map(async (p) => [p.id, await loadPayments(env.DB, p.id)] as const)));
+  return renderPortal({ token, client, quotes, projects, payments, settings });
 }
 
 /** POST /api/portal/:token/quotes/:id/(approve|reject) */

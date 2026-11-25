@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import worker from "../worker/index";
 import { handleClients } from "../worker/api/clients";
 import { handleQuotes } from "../worker/api/quotes";
+import { handleProjectPayments } from "../worker/api/payments";
 import type { Session } from "../worker/auth/session";
 import type { Client, Quote } from "../shared/types";
 import { jsonRequest, makeEnv, OWNER } from "./helpers";
@@ -144,5 +145,24 @@ describe("client portal", () => {
     await env.DB.prepare("UPDATE quotes SET issued_at = '2026-11-26T01:30:00.000Z' WHERE id = ?").bind(q.id).run();
     const html = await (await fetchPortal(env, `${await portalUrl(env, c.id)}/cotizacion/COT-0001`)).text();
     expect(html).toContain("Emitida: 25 de noviembre de 2026");
+  });
+
+  it("shows payments, balance and the Bre-B key, but not internal payment notes", async () => {
+    const env = await makeEnv();
+    const c = await newClient(env, "María Gómez");
+    const q = await sentQuote(env, c.id);
+    const token = tokenOf(await portalUrl(env, c.id));
+    await approve(env, token, q.id, { name: "María Gómez" });
+    const projectId = (await env.DB.prepare("SELECT project_id FROM quotes WHERE id = ?").bind(q.id).first<{ project_id: string }>())!.project_id;
+    const planId = (await env.DB.prepare("SELECT id FROM payment_plans WHERE project_id = ?").bind(projectId).first<{ id: string }>())!.id;
+    await handleProjectPayments(
+      jsonRequest("POST", `${B}/projects/${projectId}/payments`, { amount: 200000, paidOn: "2026-11-25", method: "breb", planId, note: "transferencia de la mamá" }),
+      env,
+      owner,
+      ["projects", projectId, "payments"],
+    );
+    const html = await (await fetchPortal(env, `${P}/c/${token}`)).text();
+    for (const text of ["Pagado", "$ 200.000", "Saldo", "$ 690.000", "Anticipo", "Llave Bre-B 3058147293 · Davibank", "Copiar llave"]) expect(html).toContain(text);
+    expect(html).not.toContain("transferencia de la mamá");
   });
 });

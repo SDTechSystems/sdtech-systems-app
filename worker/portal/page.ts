@@ -1,7 +1,7 @@
 import { dayOf, formatLongDate } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
 import { waLink } from "../../shared/phone";
-import type { Project, Quote, Settings } from "../../shared/types";
+import type { PaymentSummary, Project, Quote, Settings } from "../../shared/types";
 import { esc, page } from "./html";
 
 export interface PortalData {
@@ -9,6 +9,7 @@ export interface PortalData {
   client: { id: string; name: string };
   quotes: Quote[];
   projects: Project[];
+  payments: Record<string, PaymentSummary>;
   settings: Settings;
 }
 
@@ -47,10 +48,22 @@ input,textarea{width:100%;font:inherit;border:1px solid var(--line);border-radiu
 .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
 .msg{margin-top:8px;font-size:.9rem;color:#B42318}
 .quote-note{background:var(--white);border-radius:10px;padding:10px;margin-top:10px;font-size:.92rem;white-space:pre-wrap}
+.pay{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.pay h3{font-size:.95rem;margin:0 0 8px}
+.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.sum div{background:var(--white);border-radius:10px;padding:8px 4px}.sum span{display:block;font-size:.75rem;color:var(--soft)}.sum b{font-size:.95rem}
+.plans{list-style:none;padding:0;margin:10px 0 0}.plans li{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px dashed var(--line);font-size:.92rem}
+.plans .st{font-size:.8rem;color:var(--soft)}.plans .overdue{color:#B42318;font-weight:700}.plans .paid{color:#11613A}
+.key{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border:2px solid var(--cyan);border-radius:12px;padding:10px 12px;font-weight:700;color:var(--navy)}
 footer{text-align:center;color:var(--soft);font-size:.9rem;margin-top:36px}
 `;
 
 const SCRIPT = `
+document.querySelectorAll("[data-copy]").forEach(function(b){
+  b.addEventListener("click",function(){
+    navigator.clipboard.writeText(b.dataset.copy).then(function(){b.textContent="¡Copiada!";setTimeout(function(){b.textContent="Copiar llave"},2000)});
+  });
+});
 document.querySelectorAll("form[data-action]").forEach(function(f){
   f.addEventListener("submit",async function(e){
     e.preventDefault();
@@ -82,9 +95,31 @@ function phaseList(p: Project): string {
     .join("")}</ul>`;
 }
 
-function projectCard(p: Project): string {
+function paymentsBlock(pay: PaymentSummary, settings: Settings): string {
+  const m = (n: number) => esc(formatMoney(n, pay.currency));
+  const open = pay.plans.some((pl) => pl.status !== "paid");
+  const plans = pay.plans
+    .map((pl) => {
+      const st =
+        pl.status === "paid"
+          ? `<span class="st paid">Pagado</span>`
+          : pl.status === "overdue"
+            ? `<span class="st overdue">Venció el ${esc(formatLongDate(pl.dueDate))}</span>`
+            : `<span class="st">Vence el ${esc(formatLongDate(pl.dueDate))}</span>`;
+      const partial = pl.status !== "paid" && pl.paidAmount > 0 ? ` <span class="st">(abonado ${m(pl.paidAmount)})</span>` : "";
+      return `<li><span>${esc(pl.label)} · ${m(pl.amount)}${partial}</span>${st}</li>`;
+    })
+    .join("");
+  const key =
+    open && pay.currency === "COP"
+      ? `<div class="key"><span>Llave Bre-B ${esc(settings.payment.brebKey)} · ${esc(settings.payment.bank)}</span><button class="btn link" type="button" data-copy="${esc(settings.payment.brebKey)}">Copiar llave</button></div>`
+      : "";
+  return `<div class="pay"><h3>Pagos</h3><div class="sum"><div><span>Total</span><b>${m(pay.total)}</b></div><div><span>Pagado</span><b>${m(pay.paid)}</b></div><div><span>Saldo</span><b>${m(Math.max(pay.balance, 0))}</b></div></div>${plans ? `<ul class="plans">${plans}</ul>` : ""}${key}</div>`;
+}
+
+function projectCard(p: Project, pay: PaymentSummary | undefined, settings: Settings): string {
   return `<div class="card"><div class="row"><div><strong>${esc(p.title)}</strong><div class="muted">${p.dueDate ? `Entrega estimada: ${esc(formatLongDate(p.dueDate))}` : "Fecha de entrega por definir"}</div></div><span class="badge">${PROJECT_STATUS[p.status]}</span></div>
-<div class="bar" role="progressbar" aria-valuenow="${p.progress}" aria-valuemin="0" aria-valuemax="100"><span style="width:${p.progress}%"></span></div><div class="muted">${p.progress}% completado</div>${phaseList(p)}</div>`;
+<div class="bar" role="progressbar" aria-valuenow="${p.progress}" aria-valuemin="0" aria-valuemax="100"><span style="width:${p.progress}%"></span></div><div class="muted">${p.progress}% completado</div>${phaseList(p)}${pay && pay.total > 0 ? paymentsBlock(pay, settings) : ""}</div>`;
 }
 
 function quoteCard(q: Quote, base: string): string {
@@ -113,7 +148,7 @@ export function renderPortal(d: PortalData): Response {
   const phoneDigits = company.phone.replace(/\D/g, "");
   const body = `<header><img src="/brand/logo-white.svg" alt="SD Tech Systems"></header><main>
 <h1>Hola, ${esc(first)} 👋</h1><p class="lead">Aquí ves tus cotizaciones y el avance de tus proyectos con ${esc(company.name)}.</p>
-${d.projects.length ? `<h2>Tus proyectos</h2>${d.projects.map(projectCard).join("")}` : ""}
+${d.projects.length ? `<h2>Tus proyectos</h2>${d.projects.map((p) => projectCard(p, d.payments[p.id], d.settings)).join("")}` : ""}
 ${d.quotes.length ? `<h2>Tus cotizaciones</h2>${d.quotes.map((q) => quoteCard(q, d.token)).join("")}` : ""}
 ${!d.projects.length && !d.quotes.length ? `<div class="card"><p class="lead">Todavía no hay nada por aquí. Te avisaremos cuando tengamos tu cotización.</p></div>` : ""}
 <footer>¿Dudas? <a href="${esc(waLink(phoneDigits, `Hola, soy ${d.client.name}. `))}">Escríbenos por WhatsApp</a> · <a href="https://${esc(company.website)}">${esc(company.website)}</a><br><span>Este enlace es personal; no lo compartas.</span></footer>
