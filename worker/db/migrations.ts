@@ -53,4 +53,14 @@ export const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS idx_payments_project ON payments (project_id, paid_on)`,
     ],
   },
+  {
+    id: "0004_calendar",
+    statements: [
+      `CREATE TABLE IF NOT EXISTS oauth_states (state TEXT PRIMARY KEY, created_at TEXT NOT NULL)`,
+      `CREATE TABLE IF NOT EXISTS meetings (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, project_id TEXT, title TEXT NOT NULL, start_at TEXT NOT NULL, duration_min INTEGER NOT NULL DEFAULT 30, notes TEXT, invite_client INTEGER NOT NULL DEFAULT 0, google_event_id TEXT, meet_url TEXT, status TEXT NOT NULL DEFAULT 'scheduled' CHECK(status IN ('scheduled','cancelled')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`,
+      `CREATE TABLE IF NOT EXISTS calendar_links (key TEXT PRIMARY KEY, google_event_id TEXT NOT NULL, signature TEXT NOT NULL, updated_at TEXT NOT NULL)`,
+      `CREATE INDEX IF NOT EXISTS idx_meetings_start ON meetings (status, start_at)`,
+      `CREATE INDEX IF NOT EXISTS idx_meetings_client ON meetings (client_id, start_at)`,
+    ],
+  },
 ];

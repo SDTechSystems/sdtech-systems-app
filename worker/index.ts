@@ -1,5 +1,6 @@
 import { handleCatalog } from "./api/catalog";
 import { handleClients } from "./api/clients";
+import { handleGoogleAdmin, handleGoogleCallback, handleGoogleConnect } from "./api/google";
 import { handleMe } from "./api/me";
 import { handlePending } from "./api/pending";
 import { handleReminders } from "./api/reminders";
@@ -30,6 +31,7 @@ const ADMIN: Record<string, Handler> = {
   payments: handlePayments,
   reminders: handleReminders,
   pending: handlePending,
+  google: handleGoogleAdmin,
 };
 
 export default {
@@ -46,6 +48,14 @@ export default {
       const handler = ADMIN[path[0] ?? ""];
       if (!handler) return error(404, "not_found");
       return handler(request, env, session, path);
+    }
+
+    if (url.pathname === "/api/google/connect" || url.pathname === "/api/google/callback") {
+      await ensureSchema(env.DB);
+      const session = await authenticate(request, env);
+      if (session instanceof Response) return session;
+      const handler = url.pathname.endsWith("connect") ? handleGoogleConnect : handleGoogleCallback;
+      return handler(request, env, session, []);
     }
 
     if (url.pathname.startsWith("/api/")) return error(404, "not_found");

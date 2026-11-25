@@ -9,6 +9,10 @@ export interface Env {
   ACCESS_AUD?: string;
   /** Solo en desarrollo (.dev.vars): entra como este correo sin Access. */
   DEV_AUTH_EMAIL?: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  /** 32 bytes en base64 para cifrar el refresh token de Google. */
+  TOKEN_ENC_KEY?: string;
   /** Límite de peticiones del portal (binding ratelimits). No existe en pruebas. */
   PORTAL_LIMIT?: { limit(options: { key: string }): Promise<{ success: boolean }> };
 }
