@@ -9,7 +9,13 @@ import { apiGet } from "@/lib/api";
 import { formatDate } from "@/lib/labels";
 import { useMe } from "@/lib/session";
 
+function greetingNow(): [string, string] {
+  const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Bogota", hour: "numeric", hourCycle: "h23" }).format(new Date()));
+  return hour < 12 ? ["Buenos", "días"] : hour < 19 ? ["Buenas", "tardes"] : ["Buenas", "noches"];
+}
+
 export default function Home() {
+  const greeting = greetingNow();
   const { data: me } = useMe();
   const owner = me?.role === "owner";
   const { data, isLoading } = useQuery({ queryKey: ["pending"], queryFn: () => apiGet<Pending>("/api/admin/pending"), refetchInterval: 5 * 60_000 });
@@ -19,8 +25,9 @@ export default function Home() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Hola 👋</h1>
-          <p className="text-muted-foreground">
+          <p className="sd-eyebrow mb-3">Panel / Inicio</p>
+          <h1 className="sd-title sd-caret text-[2rem] sm:text-5xl">{greeting[0]} <span className="text-[var(--sd-cyan)]">{greeting[1]}</span></h1>
+          <p className="mt-3 text-sm text-muted-foreground">
             {data ? `${formatDate(data.today)} · ${count("overdue")} vencidos, ${count("today")} para hoy, ${count("soon")} próximos` : "Esto es lo que tienes pendiente."}
           </p>
         </div>

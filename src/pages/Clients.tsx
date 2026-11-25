@@ -33,7 +33,7 @@ export default function Clients() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Clientes</h1>
+        <div><p className="sd-eyebrow mb-3">01 / Clientes</p><h1 className="sd-title sd-caret text-[2rem] sm:text-5xl">Clientes</h1></div>
         <Button onClick={() => setCreating(true)}>
           <Plus className="h-4 w-4" /> Nuevo cliente
         </Button>
@@ -55,9 +55,9 @@ export default function Clients() {
           ))}
         </div>
       ) : data?.clients.length ? (
-        <Card className="divide-y">
+        <Card className="sd-stagger divide-y overflow-hidden">
           {data.clients.map((c) => (
-            <Link key={c.id} to={`/clientes/${c.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/50">
+            <Link key={c.id} to={`/clientes/${c.id}`} className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-[#0f2542]">
               <div className="min-w-0">
                 <p className="font-semibold truncate">{c.name}</p>
                 <p className="text-sm text-muted-foreground truncate">{[c.company, c.phone ? `+${c.phone}` : null].filter(Boolean).join(" · ") || "Sin datos de contacto"}</p>

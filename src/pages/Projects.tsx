@@ -21,7 +21,7 @@ export function ProjectCard({ p }: { p: Project }) {
   const current = p.phases.find((f) => !f.parentId && f.status === "in_progress");
   const late = p.dueDate && p.status === "active" && p.dueDate < todayBogota();
   return (
-    <Link to={`/proyectos/${p.id}`} className="block space-y-2 px-4 py-3 hover:bg-muted/50">
+    <Link to={`/proyectos/${p.id}`} className="block space-y-2 px-4 py-3 transition-colors hover:bg-[#0f2542]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-semibold">{p.title}</span>
         <ProjectBadge status={p.status} />
@@ -31,7 +31,7 @@ export function ProjectCard({ p }: { p: Project }) {
         {current ? ` · ${current.name}` : ""}
       </p>
       <ProgressBar value={p.progress} />
-      <p className={`text-xs ${late ? "font-semibold text-rose-600" : "text-muted-foreground"}`}>
+      <p className={`text-xs ${late ? "font-semibold text-rose-400" : "text-muted-foreground"}`}>
         {p.progress}%{p.dueDate ? ` · entrega ${formatDate(p.dueDate)}${late ? " (vencida)" : ""}` : ""}
       </p>
     </Link>
@@ -114,7 +114,7 @@ export default function Projects() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Proyectos</h1>
+        <div><p className="sd-eyebrow mb-3">03 / Proyectos</p><h1 className="sd-title sd-caret text-[2rem] sm:text-5xl">Proyectos</h1></div>
         <Button onClick={() => setCreating(true)}>
           <Plus className="h-4 w-4" /> Nuevo
         </Button>
@@ -126,7 +126,7 @@ export default function Projects() {
       {isLoading ? (
         <Skeleton className="h-40 w-full" />
       ) : data?.projects.length ? (
-        <Card className="divide-y">
+        <Card className="sd-stagger divide-y overflow-hidden">
           {data.projects.map((p) => (
             <ProjectCard key={p.id} p={p} />
           ))}

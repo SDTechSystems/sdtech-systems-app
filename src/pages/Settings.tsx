@@ -39,7 +39,7 @@ export default function Settings() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold">Ajustes</h1>
+      <div><p className="sd-eyebrow mb-3">05 / Ajustes</p><h1 className="sd-title sd-caret text-[2rem] sm:text-5xl">Ajustes</h1></div>
 
       <SettingsBusiness />
       <TemplatesCard />

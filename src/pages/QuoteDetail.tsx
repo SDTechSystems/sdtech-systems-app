@@ -66,8 +66,9 @@ export default function QuoteDetail() {
       </Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">{quote.number}</h1>
+          <p className="sd-eyebrow mb-3">Cotización</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="sd-title sd-caret text-[2rem] sm:text-5xl">{quote.number}</h1>
             <QuoteBadge status={quote.status} />
           </div>
           <Link to={`/clientes/${quote.clientId}`} className="text-muted-foreground hover:underline">
@@ -137,7 +138,7 @@ export default function QuoteDetail() {
       </div>
 
       {quote.status === "approved" && (
-        <Card className="border-emerald-200 bg-emerald-50">
+        <Card className="border-emerald-400/40">
           <CardContent className="pt-6 text-sm">
             <p className="font-semibold">
               Aprobada {quote.approvedBy === "client" ? `por ${quote.approvedName} desde su página` : "por ti (WhatsApp)"} · {quote.approvedAt ? formatDateTime(quote.approvedAt) : ""}

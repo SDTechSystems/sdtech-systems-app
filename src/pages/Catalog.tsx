@@ -28,11 +28,12 @@ export default function Catalog() {
     .filter((g) => g.items.length);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Catálogo</h1>
-          <p className="text-sm text-muted-foreground">Precios base para cotizar. Cambiarlos no afecta cotizaciones ya hechas.</p>
+          <p className="sd-eyebrow mb-3">04 / Catálogo</p>
+          <h1 className="sd-title sd-caret text-[2rem] sm:text-5xl">Catálogo</h1>
+          <p className="mt-3 text-sm text-muted-foreground">Precios base para cotizar. Cambiarlos no afecta cotizaciones ya hechas.</p>
         </div>
         <Button onClick={() => setEditing("new")}>
           <Plus className="h-4 w-4" /> Nuevo
@@ -41,8 +42,9 @@ export default function Catalog() {
 
       {isLoading && <Skeleton className="h-64 w-full" />}
 
+      <div className="sd-stagger space-y-6">
       {groups.map((g) => (
-        <Card key={g.service}>
+        <Card key={g.service} className="sd-lift">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">{SERVICE_LABEL[g.service]}</CardTitle>
           </CardHeader>
@@ -60,6 +62,7 @@ export default function Catalog() {
           </CardContent>
         </Card>
       ))}
+      </div>
 
       <Sheet open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
         <SheetContent className="overflow-y-auto">

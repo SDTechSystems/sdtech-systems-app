@@ -1,36 +1,53 @@
 import type { PhaseStatus, ProjectStatus, QuoteStatus } from "../../shared/types";
-import { cn } from "@/lib/utils";
 import { projectStatusLabel, quoteStatusLabel } from "@/lib/labels";
 
-const QUOTE_STYLE: Record<QuoteStatus, string> = {
-  draft: "bg-muted text-muted-foreground",
-  sent: "bg-amber-100 text-amber-800",
-  approved: "bg-emerald-100 text-emerald-800",
-  rejected: "bg-rose-100 text-rose-800",
-  expired: "bg-slate-200 text-slate-700",
-};
-const PROJECT_STYLE: Record<ProjectStatus, string> = {
-  active: "bg-blue-100 text-blue-800",
-  paused: "bg-amber-100 text-amber-800",
-  delivered: "bg-emerald-100 text-emerald-800",
-  cancelled: "bg-slate-200 text-slate-700",
-};
+type Tone = { bg: string; dot: string; text?: string };
+const TONES = {
+  cyan: { bg: "#123647", dot: "#00BDE8" },
+  amber: { bg: "#3b3022", dot: "#f4c174" },
+  green: { bg: "#11362a", dot: "#34d399" },
+  red: { bg: "#3a1d26", dot: "#fb7185" },
+  slate: { bg: "#1b2a40", dot: "#A7B9CD" },
+} satisfies Record<string, Tone>;
 
-const pill = "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap";
+const QUOTE_TONE: Record<QuoteStatus, Tone> = { draft: TONES.slate, sent: TONES.amber, approved: TONES.green, rejected: TONES.red, expired: TONES.slate };
+const PROJECT_TONE: Record<ProjectStatus, Tone> = { active: TONES.cyan, paused: TONES.amber, delivered: TONES.green, cancelled: TONES.slate };
 
-export const QuoteBadge = ({ status }: { status: QuoteStatus }) => <span className={cn(pill, QUOTE_STYLE[status])}>{quoteStatusLabel[status]}</span>;
-export const ProjectBadge = ({ status }: { status: ProjectStatus }) => <span className={cn(pill, PROJECT_STYLE[status])}>{projectStatusLabel[status]}</span>;
+export function Pill({ tone, children }: { tone: keyof typeof TONES; children: React.ReactNode }) {
+  const t = TONES[tone];
+  return (
+    <span className="sd-status text-[var(--sd-white)]" style={{ background: t.bg }}>
+      <i style={{ background: t.dot }} />
+      {children}
+    </span>
+  );
+}
+
+const Badge = ({ tone, label }: { tone: Tone; label: string }) => (
+  <span className="sd-status text-[var(--sd-white)]" style={{ background: tone.bg }}>
+    <i style={{ background: tone.dot }} />
+    {label}
+  </span>
+);
+
+export const QuoteBadge = ({ status }: { status: QuoteStatus }) => <Badge tone={QUOTE_TONE[status]} label={quoteStatusLabel[status]} />;
+export const ProjectBadge = ({ status }: { status: ProjectStatus }) => <Badge tone={PROJECT_TONE[status]} label={projectStatusLabel[status]} />;
 
 export function PhaseIcon({ status }: { status: PhaseStatus }) {
-  if (status === "done") return <span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-500 text-xs font-bold text-white">✓</span>;
-  if (status === "in_progress") return <span className="grid h-6 w-6 place-items-center rounded-full border-2 border-[var(--sd-blue)]"><span className="h-2.5 w-2.5 rounded-full bg-[var(--sd-blue)]" /></span>;
-  return <span className="block h-6 w-6 rounded-full border-2 border-muted-foreground/40" />;
+  if (status === "done") return <span className="grid h-6 w-6 place-items-center rounded-full bg-[var(--sd-cyan)] text-xs font-bold text-[var(--sd-ink)]">✓</span>;
+  if (status === "in_progress")
+    return (
+      <span className="grid h-6 w-6 place-items-center rounded-full border-2 border-[var(--sd-cyan)]">
+        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--sd-cyan)]" />
+      </span>
+    );
+  return <span className="block h-6 w-6 rounded-full border-2 border-[var(--sd-line)]" />;
 }
 
 export function ProgressBar({ value }: { value: number }) {
   return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}>
-      <div className="h-full rounded-full bg-gradient-to-r from-[var(--sd-blue)] to-[var(--sd-cyan)]" style={{ width: `${value}%` }} />
+    <div className="h-2 w-full overflow-hidden rounded-full bg-[#12294a]" role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}>
+      <div className="h-full rounded-full bg-gradient-to-r from-[var(--sd-blue)] to-[var(--sd-cyan)] transition-[width] duration-700 ease-out" style={{ width: `${value}%` }} />
     </div>
   );
 }

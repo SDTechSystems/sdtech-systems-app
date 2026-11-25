@@ -136,8 +136,9 @@ export default function ProjectDetail() {
       </Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold">{p.title}</h1>
+          <p className="sd-eyebrow mb-3 w-full">Proyecto</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="sd-title sd-caret text-[2rem] sm:text-5xl">{p.title}</h1>
             <ProjectBadge status={p.status} />
           </div>
           <p className="text-muted-foreground">
@@ -149,7 +150,7 @@ export default function ProjectDetail() {
         </div>
         {owner && (
           <div className="flex flex-wrap gap-2">
-            <Button className="bg-[#1FA855] hover:bg-[#1A8F49]" onClick={sendProgress} disabled={!client.data || !settings.data}>
+            <Button variant="whatsapp" onClick={sendProgress} disabled={!client.data || !settings.data}>
               <MessageCircle className="h-4 w-4" /> Enviar avance
             </Button>
             <Button

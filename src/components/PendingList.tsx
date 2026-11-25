@@ -24,17 +24,17 @@ const ICON: Record<PendingKind, typeof Wallet> = {
   stale: Hourglass,
 };
 const GROUPS: { key: Urgency; label: string; tone: string }[] = [
-  { key: "overdue", label: "Vencidos", tone: "border-l-rose-500" },
-  { key: "today", label: "Hoy", tone: "border-l-amber-500" },
-  { key: "soon", label: "Próximos días", tone: "border-l-[var(--sd-blue)]" },
-  { key: "info", label: "Novedades", tone: "border-l-slate-300" },
+  { key: "overdue", label: "Vencidos", tone: "border-l-rose-400" },
+  { key: "today", label: "Hoy", tone: "border-l-amber-300" },
+  { key: "soon", label: "Próximos días", tone: "border-l-[var(--sd-cyan)]" },
+  { key: "info", label: "Novedades", tone: "border-l-[var(--sd-line)]" },
 ];
 
 function Item({ it, onRemind }: { it: PendingItem; onRemind: (it: PendingItem) => void }) {
   const Icon = it.urgency === "overdue" ? AlertTriangle : ICON[it.kind];
   return (
     <div className="flex items-start gap-3 px-4 py-3">
-      <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${it.urgency === "overdue" ? "text-rose-600" : "text-muted-foreground"}`} />
+      <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${it.urgency === "overdue" ? "text-rose-400" : "text-muted-foreground"}`} />
       <div className="min-w-0 flex-1">
         <Link to={it.link} className="font-medium hover:underline">
           {it.title}
@@ -46,7 +46,7 @@ function Item({ it, onRemind }: { it: PendingItem; onRemind: (it: PendingItem) =
         </p>
         {it.kind === "payment" && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Button size="sm" className="h-8 bg-[#1FA855] hover:bg-[#1A8F49]" onClick={() => onRemind(it)}>
+            <Button size="sm" variant="whatsapp" className="h-8" onClick={() => onRemind(it)}>
               <MessageCircle className="h-4 w-4" /> Cobrar
             </Button>
             <Button size="sm" variant="outline" className="h-8" asChild>
@@ -91,7 +91,7 @@ export function PendingList({ data, owner }: { data: Pending; owner: boolean }) 
     );
   }
   return (
-    <div className="space-y-5">
+    <div className="sd-stagger space-y-6">
       {GROUPS.map((g) => {
         const items = data.items.filter((i) => i.urgency === g.key);
         if (!items.length) return null;
@@ -99,7 +99,7 @@ export function PendingList({ data, owner }: { data: Pending; owner: boolean }) 
         return (
           <section key={g.key} className="space-y-2">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              <h2 className="sd-eyebrow">
                 {g.label} ({items.length})
               </h2>
               {hasPortal && owner && (
@@ -108,7 +108,7 @@ export function PendingList({ data, owner }: { data: Pending; owner: boolean }) 
                 </Button>
               )}
             </div>
-            <Card className={`divide-y border-l-4 ${g.tone}`}>
+            <Card className={`sd-stagger divide-y overflow-hidden border-l-4 ${g.tone}`}>
               {items.map((it, i) => (
                 <Item key={`${it.kind}-${it.planId ?? it.quoteId ?? it.projectId}-${i}`} it={it} onRemind={remind} />
               ))}

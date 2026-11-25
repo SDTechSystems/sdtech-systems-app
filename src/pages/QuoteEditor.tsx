@@ -102,7 +102,8 @@ export default function QuoteEditor() {
       <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> Volver
       </button>
-      <h1 className="text-2xl font-bold">{id ? `Editar ${editing.data?.quote.number ?? ""}` : "Nueva cotización"}</h1>
+      <p className="sd-eyebrow">Cotizaciones</p>
+      <h1 className="sd-title sd-caret text-[2rem] sm:text-5xl">{id ? `Editar ${editing.data?.quote.number ?? ""}` : "Nueva cotización"}</h1>
 
       <Card>
         <CardContent className="grid gap-4 pt-6 sm:grid-cols-3">

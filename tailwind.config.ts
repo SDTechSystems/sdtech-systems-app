@@ -6,6 +6,10 @@ export default {
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
   prefix: "",
   theme: {
+    fontFamily: {
+      sans: ["SD Sans", "system-ui", "sans-serif"],
+      mono: ["SD Mono", "ui-monospace", "monospace"],
+    },
     container: {
       center: true,
       padding: "2rem",

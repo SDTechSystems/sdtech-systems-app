@@ -23,39 +23,54 @@ const PROJECT_STATUS: Record<string, string> = { active: "En curso", paused: "En
 const PHASE_ICON: Record<string, string> = { done: "✓", in_progress: "●", pending: "○" };
 
 const CSS = `
-header{background:var(--ink);padding:14px 18px}header img{height:34px;width:auto;display:block}
-main{max-width:720px;margin:0 auto;padding:20px 16px 48px}
-h1{font-size:1.5rem;margin:8px 0 4px}h2{font-size:1.1rem;margin:28px 0 12px}
-.lead{color:var(--soft);margin:0}
-.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+header{position:sticky;top:0;z-index:5;background:rgba(7,17,31,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+header img{height:32px;width:auto;display:block}header span{font:.625rem "SD Mono",monospace;letter-spacing:.1em;color:var(--muted)}
+main{max-width:760px;margin:0 auto;padding:34px 18px 56px}
+h1{font-size:clamp(2.4rem,9vw,3.6rem);line-height:1.02;letter-spacing:-.045em;margin:14px 0 14px;font-weight:700}
+h1 em{font-style:normal;color:var(--cyan)}
+h2{font:.6875rem "SD Mono",monospace;letter-spacing:.12em;text-transform:uppercase;margin:40px 0 14px;color:var(--white)}
+h2::before{content:attr(data-n) " / ";color:var(--cyan)}
+.lead{color:var(--soft);margin:0;max-width:46ch}
+.card{background:linear-gradient(180deg,rgba(12,32,58,.95),rgba(9,24,45,.95));border:1px solid #24406a;border-radius:18px;padding:18px;margin-bottom:14px;transition:transform .45s cubic-bezier(.2,.7,.2,1),border-color .25s}
+@media(hover:hover) and (pointer:fine){.card:hover{transform:translateY(-3px);border-color:#3a5f95}}
+.card strong{font-size:1.15rem;letter-spacing:-.02em}
 .row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
 .muted{color:var(--soft);font-size:.9rem}
-.badge{display:inline-block;font-size:.78rem;font-weight:700;border-radius:999px;padding:3px 10px;background:#E6EEF8;color:var(--navy)}
-.badge.pending{background:#FFF4D6;color:#7A5300}.badge.ok{background:#DDF6E8;color:#11613A}.badge.off{background:#EEF1F5;color:#5B6B80}
-.amount{font-weight:700;font-size:1.15rem}
-.bar{height:10px;background:#E6EEF8;border-radius:99px;overflow:hidden;margin:10px 0 4px}.bar>span{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan))}
-ul.phases{list-style:none;padding:0;margin:12px 0 0}ul.phases li{padding:6px 0;border-top:1px solid var(--line)}
-ul.phases li.done{color:var(--soft)}ul.phases li.in_progress{font-weight:700;color:var(--navy)}
-ul.phases li .ico{display:inline-block;width:1.4em;color:var(--blue)}
+.badge{display:inline-flex;align-items:center;gap:6px;font:.625rem "SD Mono",monospace;letter-spacing:.04em;border-radius:999px;padding:6px 10px;background:#123647;color:var(--white);white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--cyan)}
+.badge.pending{background:#3b3022}.badge.pending::before{background:#f4c174}
+.badge.ok{background:#11362a}.badge.ok::before{background:#34d399}
+.badge.off{background:#1b2a40}.badge.off::before{background:var(--muted)}
+.amount{font-weight:700;font-size:1.35rem;letter-spacing:-.02em}
+.bar{height:8px;background:#12294a;border-radius:99px;overflow:hidden;margin:14px 0 6px}.bar>span{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan));border-radius:99px;transform-origin:left;animation:grow 1s .3s cubic-bezier(.2,.7,.2,1) both}
+@keyframes grow{from{transform:scaleX(0)}to{transform:none}}
+ul.phases{list-style:none;padding:0;margin:14px 0 0}ul.phases li{padding:8px 0;border-top:1px solid var(--line)}
+ul.phases li.done{color:var(--soft)}ul.phases li.in_progress{font-weight:700;color:var(--white)}
+ul.phases li .ico{display:inline-block;width:1.5em;color:var(--cyan)}
+ul.phases li.in_progress .ico{animation:caret 1.6s ease-in-out infinite}
 ul.phases ul{list-style:none;padding-left:1.6em;margin:4px 0 0;font-weight:400}
-.note{display:block;font-weight:400;color:var(--soft);font-size:.9rem;margin-left:1.4em}
-.btn{display:inline-block;border:0;border-radius:12px;padding:12px 18px;font:inherit;font-weight:700;cursor:pointer;text-decoration:none}
-.btn.primary{background:var(--navy);color:var(--white)}.btn.ghost{background:transparent;color:var(--soft);text-decoration:underline;padding:12px 4px}
-.btn.link{background:#E6EEF8;color:var(--navy)}
-form{margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
-label{display:block;font-size:.9rem;font-weight:700;margin:10px 0 4px}
-input,textarea{width:100%;font:inherit;border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff}
-.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
-.msg{margin-top:8px;font-size:.9rem;color:#B42318}
-.quote-note{background:var(--white);border-radius:10px;padding:10px;margin-top:10px;font-size:.92rem;white-space:pre-wrap}
-.pay{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
-.pay h3{font-size:.95rem;margin:0 0 8px}
+.note{display:block;font-weight:400;color:var(--soft);font-size:.9rem;margin-left:1.5em}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);border-radius:999px;padding:12px 20px;font:inherit;font-size:.9rem;cursor:pointer;text-decoration:none;color:var(--white);background:transparent;transition:border-color .2s,transform .25s cubic-bezier(.34,1.56,.64,1)}
+.btn:hover{border-color:var(--white)}.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--navy);border-color:#3a5f95;font-weight:700}.btn.primary:hover{border-color:var(--cyan)}
+.btn.ghost{border-color:transparent;color:var(--soft);text-decoration:underline;padding:12px 6px}
+.btn.link{background:#0f2542}
+form{margin-top:16px;border-top:1px solid var(--line);padding-top:16px}
+label{display:block;font:.625rem "SD Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--soft);margin:12px 0 6px}
+input,textarea{width:100%;font:inherit;color:var(--white);border:1px solid var(--line);border-radius:12px;padding:12px;background:#0a1729}
+input:focus,textarea:focus{border-color:var(--cyan);outline:none}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.msg{margin-top:8px;font-size:.9rem;color:#fb7185}
+.quote-note{background:#0a1729;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px;font-size:.92rem;white-space:pre-wrap}
+.pay{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+.pay h3{font:.625rem "SD Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--soft);margin:0 0 10px;font-weight:400}
 .sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
-.sum div{background:var(--white);border-radius:10px;padding:8px 4px}.sum span{display:block;font-size:.75rem;color:var(--soft)}.sum b{font-size:.95rem}
-.plans{list-style:none;padding:0;margin:10px 0 0}.plans li{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px dashed var(--line);font-size:.92rem}
-.plans .st{font-size:.8rem;color:var(--soft)}.plans .overdue{color:#B42318;font-weight:700}.plans .paid{color:#11613A}
-.key{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border:2px solid var(--cyan);border-radius:12px;padding:10px 12px;font-weight:700;color:var(--navy)}
-footer{text-align:center;color:var(--soft);font-size:.9rem;margin-top:36px}
+.sum div{background:#0a1729;border:1px solid var(--line);border-radius:12px;padding:10px 4px}.sum span{display:block;font:.6rem "SD Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--soft)}.sum b{font-size:.95rem;white-space:nowrap}
+.plans{list-style:none;padding:0;margin:12px 0 0}.plans li{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px dashed var(--line);font-size:.92rem}
+.plans .st{font-size:.8rem;color:var(--soft)}.plans .overdue{color:#fb7185;font-weight:700}.plans .paid{color:#34d399}
+.key{margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border:1px solid var(--cyan);background:rgba(0,189,232,.08);border-radius:14px;padding:12px 14px;font-weight:700;color:var(--white)}
+footer{text-align:center;color:var(--soft);font-size:.85rem;margin-top:48px;border-top:1px solid var(--line);padding-top:22px}
+footer .wa{display:inline-flex;align-items:center;gap:8px;margin-bottom:12px;background:#0f5c34;border:1px solid #1b8a4c;color:#fff;border-radius:999px;padding:11px 18px;text-decoration:none}
 `;
 
 const SCRIPT = `
@@ -118,7 +133,7 @@ function paymentsBlock(pay: PaymentSummary, settings: Settings): string {
 }
 
 function projectCard(p: Project, pay: PaymentSummary | undefined, settings: Settings): string {
-  return `<div class="card"><div class="row"><div><strong>${esc(p.title)}</strong><div class="muted">${p.dueDate ? `Entrega estimada: ${esc(formatLongDate(p.dueDate))}` : "Fecha de entrega por definir"}</div></div><span class="badge">${PROJECT_STATUS[p.status]}</span></div>
+  return `<div class="card"><div class="row"><div><strong>${esc(p.title)}</strong><div class="muted">${p.dueDate ? `Entrega estimada: ${esc(formatLongDate(p.dueDate))}` : "Fecha de entrega por definir"}</div></div><span class="badge${p.status === "delivered" ? " ok" : p.status === "active" ? "" : " off"}">${PROJECT_STATUS[p.status]}</span></div>
 <div class="bar" role="progressbar" aria-valuenow="${p.progress}" aria-valuemin="0" aria-valuemax="100"><span style="width:${p.progress}%"></span></div><div class="muted">${p.progress}% completado</div>${phaseList(p)}${pay && pay.total > 0 ? paymentsBlock(pay, settings) : ""}</div>`;
 }
 
@@ -146,12 +161,16 @@ export function renderPortal(d: PortalData): Response {
   const first = d.client.name.split(" ")[0];
   const company = d.settings.company;
   const phoneDigits = company.phone.replace(/\D/g, "");
-  const body = `<header><img src="/brand/logo-white.svg" alt="SD Tech Systems"></header><main>
-<h1>Hola, ${esc(first)} 👋</h1><p class="lead">Aquí ves tus cotizaciones y el avance de tus proyectos con ${esc(company.name)}.</p>
-${d.projects.length ? `<h2>Tus proyectos</h2>${d.projects.map((p) => projectCard(p, d.payments[p.id], d.settings)).join("")}` : ""}
-${d.quotes.length ? `<h2>Tus cotizaciones</h2>${d.quotes.map((q) => quoteCard(q, d.token)).join("")}` : ""}
+  const sections = [
+    d.projects.length ? { title: "Tus proyectos", html: d.projects.map((p) => projectCard(p, d.payments[p.id], d.settings)).join("") } : null,
+    d.quotes.length ? { title: "Tus cotizaciones", html: d.quotes.map((q) => quoteCard(q, d.token)).join("") } : null,
+  ].filter((s): s is { title: string; html: string } => !!s);
+  const body = `<header><img src="/brand/logo-white.svg" alt="SD Tech Systems"><span>SEGUIMIENTO</span></header><main class="arrive">
+<p class="eyebrow">Tu página de seguimiento</p>
+<h1>Hola, <em class="caret">${esc(first)}</em></h1><p class="lead">Aquí ves tus cotizaciones y el avance de tus proyectos con ${esc(company.name)}.</p>
+${sections.map((s, i) => `<h2 data-n="${String(i + 1).padStart(2, "0")}">${s.title}</h2><div class="stagger">${s.html}</div>`).join("")}
 ${!d.projects.length && !d.quotes.length ? `<div class="card"><p class="lead">Todavía no hay nada por aquí. Te avisaremos cuando tengamos tu cotización.</p></div>` : ""}
-<footer>¿Dudas? <a href="${esc(waLink(phoneDigits, `Hola, soy ${d.client.name}. `))}">Escríbenos por WhatsApp</a> · <a href="https://${esc(company.website)}">${esc(company.website)}</a><br><span>Este enlace es personal; no lo compartas.</span></footer>
+<footer><a class="wa" href="${esc(waLink(phoneDigits, `Hola, soy ${d.client.name}. `))}">¿Dudas? Escríbenos por WhatsApp</a><br><a href="https://${esc(company.website)}">${esc(company.website)}</a><br><span>Este enlace es personal; no lo compartas.</span></footer>
 </main>`;
   return page(`${company.name} · ${d.client.name}`, body, { css: CSS, script: SCRIPT });
 }

@@ -1,13 +1,19 @@
 @font-face {
-  font-family: "DejaVu Sans";
+  font-family: "SD Sans";
   src: url("/fonts/DejaVuSans.woff2") format("woff2");
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
-  font-family: "DejaVu Sans";
+  font-family: "SD Sans";
   src: url("/fonts/DejaVuSans-Bold.woff2") format("woff2");
-  font-weight: 700;
+  font-weight: 600 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SD Mono";
+  src: url("/fonts/DejaVuSansMono.woff2") format("woff2");
+  font-weight: 400;
   font-display: swap;
 }
 
@@ -17,47 +23,51 @@
 
 @layer base {
   :root {
-    /* Marca SD Tech Systems v1.1 (brand-tokens.json) */
+    /* Marca SD Tech Systems v1.1 — mismo lenguaje visual que sdtechsystems.dev */
     --sd-navy: #061C45;
-    --sd-white: #F4F8FC;
     --sd-cyan: #00BDE8;
-    --sd-blue: #2563EB;
     --sd-ink: #07111F;
+    --sd-blue: #2563EB;
+    --sd-white: #F4F8FC;
     --sd-muted: #A7B9CD;
+    --sd-line: #2c405b;
+    --sd-card: #0b1a2f;
+    --sd-panel: #0c203a;
 
-    --background: 210 50% 97%;
-    --foreground: 215 63% 7%;
-    --card: 0 0% 100%;
-    --card-foreground: 215 63% 7%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 215 63% 7%;
+    color-scheme: dark;
+    --background: 215 63% 7%;
+    --foreground: 210 60% 97%;
+    --card: 214 62% 11%;
+    --card-foreground: 210 60% 97%;
+    --popover: 214 60% 10%;
+    --popover-foreground: 210 60% 97%;
     --primary: 220 84% 15%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 213 25% 93%;
-    --secondary-foreground: 215 45% 15%;
-    --muted: 213 25% 94%;
-    --muted-foreground: 213 15% 42%;
-    --accent: 191 100% 45%;
+    --primary-foreground: 210 60% 97%;
+    --secondary: 215 45% 16%;
+    --secondary-foreground: 210 60% 97%;
+    --muted: 215 45% 15%;
+    --muted-foreground: 212 25% 73%;
+    --accent: 192 100% 45%;
     --accent-foreground: 215 63% 7%;
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --success: 142 71% 40%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    --border: 213 25% 88%;
-    --input: 213 25% 88%;
-    --ring: 221 83% 53%;
+    --success: 152 60% 45%;
+    --success-foreground: 215 63% 7%;
+    --warning: 38 92% 60%;
+    --warning-foreground: 215 63% 7%;
+    --border: 215 35% 26%;
+    --input: 215 35% 26%;
+    --ring: 192 100% 45%;
     --radius: 0.75rem;
 
     --sidebar-background: 215 63% 7%;
-    --sidebar-foreground: 213 30% 90%;
-    --sidebar-primary: 191 100% 45%;
+    --sidebar-foreground: 212 25% 73%;
+    --sidebar-primary: 192 100% 45%;
     --sidebar-primary-foreground: 215 63% 7%;
-    --sidebar-accent: 215 45% 14%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 215 45% 14%;
-    --sidebar-ring: 191 100% 45%;
+    --sidebar-accent: 220 84% 15%;
+    --sidebar-accent-foreground: 210 60% 97%;
+    --sidebar-border: 215 35% 26%;
+    --sidebar-ring: 192 100% 45%;
   }
 }
 
@@ -65,10 +75,128 @@
   * {
     @apply border-border;
   }
-
+  html {
+    font-family: "SD Sans", system-ui, sans-serif;
+    font-synthesis: none;
+  }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    font-family: "DejaVu Sans", system-ui, sans-serif;
+    @apply bg-background text-foreground antialiased;
     -webkit-tap-highlight-color: transparent;
+  }
+  h1, h2, h3 {
+    overflow-wrap: anywhere;
+  }
+  a:focus-visible,
+  button:focus-visible {
+    outline: 3px solid var(--sd-blue);
+    outline-offset: 4px;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+  }
+}
+
+@layer components {
+  /* Etiqueta tipo terminal: ">_ CLIENTES" */
+  .sd-eyebrow {
+    font-family: "SD Mono", ui-monospace, monospace;
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--sd-white);
+  }
+  .sd-eyebrow::before {
+    content: ">_";
+    color: var(--sd-cyan);
+    margin-right: 0.75em;
+    letter-spacing: 0;
+  }
+  .sd-mono {
+    font-family: "SD Mono", ui-monospace, monospace;
+  }
+  .sd-title {
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1.04;
+  }
+  /* Cursor "_" que parpadea al final de los títulos, como en el portafolio */
+  .sd-caret::after {
+    content: "_";
+    color: var(--sd-cyan);
+    margin-left: 0.04em;
+    animation: sd-caret 1.1s step-end infinite;
+  }
+  .sd-card {
+    background: linear-gradient(180deg, rgba(12, 32, 58, 0.92), rgba(9, 24, 45, 0.92));
+    border: 1px solid #24406a;
+  }
+  .sd-lift {
+    transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1), border-color 0.25s, background-color 0.25s;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .sd-lift:hover {
+      transform: translateY(-3px);
+      border-color: #3a5f95;
+    }
+  }
+  /* Entrada de página y aparición escalonada (animación "arrive" del portafolio) */
+  .sd-arrive {
+    animation: sd-arrive 0.65s ease-out both;
+  }
+  .sd-stagger > * {
+    animation: sd-arrive 0.55s ease-out both;
+    animation-delay: 60ms;
+  }
+  .sd-stagger > *:nth-child(2) { animation-delay: 105ms; }
+  .sd-stagger > *:nth-child(3) { animation-delay: 150ms; }
+  .sd-stagger > *:nth-child(4) { animation-delay: 195ms; }
+  .sd-stagger > *:nth-child(5) { animation-delay: 240ms; }
+  .sd-stagger > *:nth-child(6) { animation-delay: 285ms; }
+  .sd-stagger > *:nth-child(n + 7) { animation-delay: 330ms; }
+  .sd-status {
+    font-family: "SD Mono", ui-monospace, monospace;
+    font-size: 0.625rem;
+    letter-spacing: 0.04em;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .sd-status i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex: none;
+  }
+}
+
+@keyframes sd-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes sd-caret {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
   }
 }

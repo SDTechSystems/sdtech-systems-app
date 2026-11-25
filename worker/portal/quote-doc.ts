@@ -11,8 +11,9 @@ export interface QuoteDocData {
 }
 
 const CSS = `
-body{background:#E9EEF5}
-.sheet{max-width:820px;margin:24px auto;background:#fff;padding:40px 44px;box-shadow:0 2px 18px rgba(6,28,69,.08);border-radius:8px}
+body{background:var(--ink)}
+.sheet{color:#0B1B33;--line:#DCE5EF;--soft:#5B6B80;--white:#F1F5FA}
+.sheet{max-width:820px;margin:20px auto 40px;background:#fff;padding:40px 44px;box-shadow:0 30px 60px rgba(0,0,0,.45);border-radius:14px;animation:arrive .7s ease-out both}
 .top{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;border-bottom:3px solid var(--navy);padding-bottom:18px}
 .top img{width:230px;height:auto}
 .company{text-align:right;font-size:.85rem;color:var(--soft)}
@@ -40,10 +41,10 @@ ol{margin:0;padding-left:20px;font-size:.86rem;color:#33445C}ol li{margin-bottom
 .foot .qr{width:110px;flex:none}.foot .qr svg{width:100%;height:auto;display:block}
 .foot p{margin:0;font-size:.86rem;color:var(--soft)}
 .tools{max-width:820px;margin:16px auto 0;display:flex;gap:10px;justify-content:flex-end;padding:0 12px}
-.tools a,.tools button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:10px 16px;cursor:pointer;text-decoration:none}
-.tools button{background:var(--navy);color:#fff}.tools a{background:#fff;color:var(--navy)}
+.tools a,.tools button{font:inherit;font-size:.9rem;border:1px solid var(--line);border-radius:999px;padding:11px 18px;cursor:pointer;text-decoration:none;color:var(--white);background:transparent;transition:border-color .2s}
+.tools button{background:var(--navy);border-color:#3a5f95;font-weight:700}.tools a:hover{border-color:var(--white)}.tools button:hover{border-color:var(--cyan)}
 @media (max-width:640px){.sheet{margin:0;border-radius:0;padding:22px 16px}.top{flex-direction:column}.company{text-align:left}.meta{grid-template-columns:1fr}.top img{width:190px}}
-@media print{body{background:#fff}.tools{display:none}.sheet{box-shadow:none;margin:0;max-width:none;padding:0}@page{margin:14mm}}
+@media print{body{background:#fff}.sheet{animation:none}.tools{display:none}.sheet{box-shadow:none;margin:0;max-width:none;padding:0}@page{margin:14mm}}
 `;
 
 export function renderQuoteDocument(d: QuoteDocData): Response {

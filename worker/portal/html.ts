@@ -22,12 +22,24 @@ export function qrSvg(text: string): string {
 }
 
 export const BASE_CSS = `
-@font-face{font-family:"DejaVu Sans";src:url(/fonts/DejaVuSans.woff2) format("woff2");font-weight:400;font-display:swap}
-@font-face{font-family:"DejaVu Sans";src:url(/fonts/DejaVuSans-Bold.woff2) format("woff2");font-weight:700;font-display:swap}
-:root{--navy:#061C45;--cyan:#00BDE8;--ink:#07111F;--blue:#2563EB;--white:#F4F8FC;--muted:#A7B9CD;--line:#DCE5EF;--text:#0B1B33;--soft:#5B6B80}
+@font-face{font-family:"SD Sans";src:url(/fonts/DejaVuSans.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"SD Sans";src:url(/fonts/DejaVuSans-Bold.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"SD Mono";src:url(/fonts/DejaVuSansMono.woff2) format("woff2");font-weight:400;font-display:swap}
+:root{--navy:#061C45;--cyan:#00BDE8;--ink:#07111F;--blue:#2563EB;--white:#F4F8FC;--muted:#A7B9CD;--line:#2c405b;--text:#F4F8FC;--soft:#A7B9CD;color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0;background:var(--white);color:var(--text);font-family:"DejaVu Sans",system-ui,sans-serif;line-height:1.5;-webkit-text-size-adjust:100%}
-a{color:var(--blue)}
+body{margin:0;background:var(--ink);color:var(--text);font-family:"SD Sans",system-ui,sans-serif;line-height:1.55;-webkit-text-size-adjust:100%;font-synthesis:none}
+a{color:var(--cyan)}
+a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--blue);outline-offset:4px}
+.eyebrow{font:.6875rem "SD Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--white)}
+.eyebrow::before{content:">_";color:var(--cyan);margin-right:.75em;letter-spacing:0}
+.caret::after{content:"_";color:var(--cyan);margin-left:.04em;animation:caret 1.1s step-end infinite}
+.arrive{animation:arrive .65s ease-out both}
+.stagger>*{animation:arrive .55s ease-out both;animation-delay:80ms}
+.stagger>*:nth-child(2){animation-delay:140ms}.stagger>*:nth-child(3){animation-delay:200ms}.stagger>*:nth-child(n+4){animation-delay:260ms}
+@keyframes arrive{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes caret{0%,100%{opacity:1}50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+@media print{.caret::after{content:none}}
 `;
 
 export function page(title: string, body: string, opts: { css?: string; script?: string; status?: number } = {}): Response {
@@ -35,12 +47,12 @@ export function page(title: string, body: string, opts: { css?: string; script?:
   return new Response(html, { status: opts.status ?? 200, headers: PORTAL_HEADERS });
 }
 
-const SIMPLE_CSS = `body{min-height:100vh;display:grid;place-items:center;background:var(--ink);color:var(--white);text-align:center;padding:24px}img{width:min(280px,70vw);height:auto}p{color:var(--muted);max-width:34ch;margin:20px auto 0}a{color:var(--cyan)}`;
+const SIMPLE_CSS = `body{min-height:100vh;display:grid;place-items:center;text-align:center;padding:24px}main{animation:arrive .7s ease-out both}img{width:min(280px,70vw);height:auto;margin:auto}.eyebrow{display:block;margin-top:28px}p{color:var(--muted);max-width:34ch;margin:18px auto 0}`;
 
 export function simplePage(message: string, status = 200): Response {
   return page(
     "SD Tech Systems · Seguimiento",
-    `<main><img src="/brand/logo-white.svg" alt="SD Tech Systems"><p>${message}</p><p><a href="https://sdtechsystems.dev">sdtechsystems.dev</a></p></main>`,
+    `<main><img src="/brand/logo-white.svg" alt="SD Tech Systems"><span class="eyebrow">Seguimiento de clientes</span><p>${message}</p><p><a href="https://sdtechsystems.dev">sdtechsystems.dev</a></p></main>`,
     { css: SIMPLE_CSS, status },
   );
 }

@@ -77,13 +77,14 @@ export default function ClientDetail() {
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">{client.name}</h1>
+          <p className="sd-eyebrow mb-3">Cliente</p>
+          <h1 className="sd-title sd-caret text-[2rem] sm:text-5xl">{client.name}</h1>
           {client.company && <p className="text-muted-foreground">{client.company}</p>}
           {client.archived && <Badge variant="secondary" className="mt-2">Archivado</Badge>}
         </div>
         <div className="flex flex-wrap gap-2">
           {client.phone && (
-            <Button asChild className="bg-[#1FA855] hover:bg-[#1A8F49]">
+            <Button asChild variant="whatsapp">
               <a href={waLink(client.phone, `Hola ${firstName}, `)} target="_blank" rel="noreferrer">
                 <MessageCircle className="h-4 w-4" /> WhatsApp
               </a>

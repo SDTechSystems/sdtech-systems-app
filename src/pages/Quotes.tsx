@@ -30,7 +30,7 @@ export default function Quotes() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Cotizaciones</h1>
+        <div><p className="sd-eyebrow mb-3">02 / Cotizaciones</p><h1 className="sd-title sd-caret text-[2rem] sm:text-5xl">Cotizaciones</h1></div>
         <Button asChild>
           <Link to="/cotizaciones/nueva">
             <Plus className="h-4 w-4" /> Nueva
@@ -51,9 +51,9 @@ export default function Quotes() {
       {isLoading ? (
         <Skeleton className="h-40 w-full" />
       ) : data?.quotes.length ? (
-        <Card className="divide-y">
+        <Card className="sd-stagger divide-y overflow-hidden">
           {data.quotes.map((q) => (
-            <Link key={q.id} to={`/cotizaciones/${q.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50">
+            <Link key={q.id} to={`/cotizaciones/${q.id}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[#0f2542]">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold">{q.number}</span>

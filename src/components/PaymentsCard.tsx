@@ -19,7 +19,7 @@ import { useSettingsQuery } from "@/lib/useSettings";
 import { logReminder, openWhatsApp, paymentVars } from "@/lib/whatsapp";
 
 const METHOD_LABEL: Record<PaymentMethod, string> = { breb: "Bre-B", nequi: "Nequi", bancolombia: "Bancolombia", efectivo: "Efectivo" };
-const STATUS_STYLE = { paid: "text-emerald-700", overdue: "text-rose-600 font-semibold", pending: "text-muted-foreground" } as const;
+const STATUS_STYLE = { paid: "text-emerald-400", overdue: "text-rose-400 font-semibold", pending: "text-muted-foreground" } as const;
 
 type Dialog = { type: "plan" } | { type: "payment"; plan?: PaymentPlan } | null;
 
@@ -80,7 +80,7 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <Wallet className="h-4 w-4" /> Pagos
         </CardTitle>
@@ -102,7 +102,7 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
           ].map(([l, v]) => (
             <div key={l as string} className="rounded-lg bg-muted/60 p-2">
               <p className="text-xs text-muted-foreground">{l}</p>
-              <p className={`whitespace-nowrap text-sm font-bold sm:text-base ${l === "Saldo" && (v as number) < 0 ? "text-amber-600" : ""}`}>{m(v as number)}</p>
+              <p className={`whitespace-nowrap text-sm font-bold sm:text-base ${l === "Saldo" && (v as number) < 0 ? "text-amber-400" : ""}`}>{m(v as number)}</p>
             </div>
           ))}
         </div>
@@ -124,7 +124,7 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
                     {p.paidAmount > 0 && <p className="text-xs text-muted-foreground">Abonado {m(p.paidAmount)} · faltan {m(p.amount - p.paidAmount)}</p>}
                     {lastReminders[p.id] && <p className="text-xs text-muted-foreground">Último recordatorio: {formatDateTime(lastReminders[p.id])}</p>}
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" className="bg-[#1FA855] hover:bg-[#1A8F49]" onClick={() => remind(p)}>
+                      <Button size="sm" variant="whatsapp" onClick={() => remind(p)}>
                         <MessageCircle className="h-4 w-4" /> Cobrar por WhatsApp
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => openPayment(p)}>
