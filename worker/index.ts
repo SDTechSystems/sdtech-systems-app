@@ -2,6 +2,7 @@ import { handleCatalog } from "./api/catalog";
 import { handleClients } from "./api/clients";
 import { handleGoogleAdmin, handleGoogleCallback, handleGoogleConnect } from "./api/google";
 import { handleMe } from "./api/me";
+import { handleExport } from "./api/export";
 import { handleInvoices } from "./api/invoices";
 import { renderVerify } from "./portal/verify";
 import { handleSubscriptions } from "./api/subscriptions";
@@ -42,6 +43,7 @@ const ADMIN: Record<string, Handler> = {
   changes: handleChanges,
   subscriptions: handleSubscriptions,
   invoices: handleInvoices,
+  export: handleExport,
 };
 
 /** Cambios del panel que mueven fechas del calendario. */

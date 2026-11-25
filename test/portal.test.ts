@@ -234,4 +234,15 @@ describe("client portal", () => {
       expect((await post(env, `${otherToken}/changes/${changeId}/approve`, { name: "Bruno Ruiz" })).status).toBe(404);
     });
   });
+
+  it("lists the client's active services", async () => {
+    const env = await makeEnv();
+    const c = await newClient(env, "María Gómez");
+    await env.DB.prepare("INSERT INTO subscriptions (id, client_id, kind, name, amount, currency, cycle, next_due, status, created_at, updated_at) VALUES ('s1', ?, 'hosting', 'Hosting', 25000, 'COP', 'mensual', '2026-12-12', 'active', '', '')").bind(c.id).run();
+    await env.DB.prepare("INSERT INTO subscriptions (id, client_id, kind, name, amount, currency, cycle, next_due, status, created_at, updated_at) VALUES ('s2', ?, 'dominio', 'Dominio viejo', 90000, 'COP', 'anual', '2026-12-12', 'cancelled', '', '')").bind(c.id).run();
+    const html = await (await fetchPortal(env, await portalUrl(env, c.id))).text();
+    expect(html).toContain("Tus servicios");
+    expect(html).toContain("Hosting · $ 25.000/mes · próximo cobro el 12 de diciembre de 2026");
+    expect(html).not.toContain("Dominio viejo");
+  });
 });

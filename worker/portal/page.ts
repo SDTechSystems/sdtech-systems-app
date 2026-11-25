@@ -1,7 +1,7 @@
 import { dayOf, formatLongDate, meetingDayLabel, meetingTimeLabel } from "../../shared/dates";
 import { formatMoney, signedMoney } from "../../shared/money";
 import { waLink } from "../../shared/phone";
-import type { ChangeRequest, Invoice, Meeting, PaymentSummary, Project, Quote, Settings } from "../../shared/types";
+import type { ChangeRequest, Invoice, Meeting, PaymentSummary, Project, Quote, Settings, Subscription } from "../../shared/types";
 import { esc, page } from "./html";
 
 export interface PortalData {
@@ -13,6 +13,7 @@ export interface PortalData {
   changes: Record<string, ChangeRequest[]>;
   meetings: Meeting[];
   invoices: Invoice[];
+  subscriptions: Subscription[];
   settings: Settings;
 }
 
@@ -200,6 +201,14 @@ export function renderPortal(d: PortalData): Response {
   const sections = [
     d.meetings.length ? { title: "Próximas reuniones", html: meetingsHtml } : null,
     d.projects.length ? { title: "Tus proyectos", html: d.projects.map((p) => projectCard(p, d.payments[p.id], d.settings, d.changes[p.id], d.token)).join("") } : null,
+    d.subscriptions.length
+      ? {
+          title: "Tus servicios",
+          html: `<div class="card"><ul class="plans" style="margin:0">${d.subscriptions
+            .map((s) => `<li><span>${esc(s.name)} · ${esc(formatMoney(s.amount, s.currency))}${s.cycle === "mensual" ? "/mes" : "/año"} · próximo cobro el ${esc(formatLongDate(s.nextDue))}</span></li>`)
+            .join("")}</ul></div>`,
+        }
+      : null,
     d.quotes.length ? { title: "Tus cotizaciones", html: d.quotes.map((q) => quoteCard(q, d.token)).join("") } : null,
     d.invoices.length
       ? {
@@ -217,7 +226,7 @@ export function renderPortal(d: PortalData): Response {
 <p class="eyebrow">Tu página de seguimiento</p>
 <h1>Hola, <em class="caret">${esc(first)}</em></h1><p class="lead">Aquí ves tus cotizaciones y el avance de tus proyectos con ${esc(company.name)}.</p>
 ${sections.map((s, i) => `<h2 data-n="${String(i + 1).padStart(2, "0")}">${s.title}</h2><div class="stagger">${s.html}</div>`).join("")}
-${!d.projects.length && !d.quotes.length && !d.meetings.length ? `<div class="card"><p class="lead">Todavía no hay nada por aquí. Te avisaremos cuando tengamos tu cotización.</p></div>` : ""}
+${!d.projects.length && !d.quotes.length && !d.meetings.length && !d.subscriptions.length ? `<div class="card"><p class="lead">Todavía no hay nada por aquí. Te avisaremos cuando tengamos tu cotización.</p></div>` : ""}
 <footer><a class="wa" href="${esc(waLink(phoneDigits, `Hola, soy ${d.client.name}. `))}">¿Dudas? Escríbenos por WhatsApp</a><br><a href="https://${esc(company.website)}">${esc(company.website)}</a><br><span>Este enlace es personal; no lo compartas.</span></footer>
 </main>`;
   return page(`${company.name} · ${d.client.name}`, body, { css: CSS, script: SCRIPT });

@@ -14,6 +14,7 @@ import { renderPortal } from "./page";
 import { renderQuoteDocument } from "./quote-doc";
 import { renderInvoiceDocument } from "./invoice-doc";
 import { findInvoice, listInvoices } from "../invoices/repo";
+import { listSubscriptions } from "../api/subscriptions";
 import { findClientByToken, portalUrl } from "./tokens";
 
 const PORTAL_QUOTES = ["sent", "approved", "rejected", "expired"] as const;
@@ -51,7 +52,8 @@ export async function handlePortalPage(env: Env, token: string, sub: string[]): 
   const changes = Object.fromEntries(await Promise.all(projects.map(async (p) => [p.id, await listChanges(env.DB, p.id)] as const)));
   const meetings = await listMeetings(env.DB, { clientId: client.id, fromDate: todayBogota() });
   const invoices = await listInvoices(env.DB, { clientId: client.id });
-  return renderPortal({ token, client, quotes, projects, payments, changes, meetings, invoices, settings });
+  const subscriptions = await listSubscriptions(env.DB, { clientId: client.id });
+  return renderPortal({ token, client, quotes, projects, payments, changes, meetings, invoices, subscriptions, settings });
 }
 
 /** POST /api/portal/:token/(quotes/:id/(approve|reject) | projects/:id/adjustments | changes/:id/(approve|reject)) */
