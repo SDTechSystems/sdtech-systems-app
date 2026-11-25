@@ -37,7 +37,7 @@ export const handlePending: Handler = async (request, env, session, path) => {
       .prepare(
         `SELECT pp.id, pp.label, pp.amount - COALESCE((SELECT SUM(amount) FROM payments WHERE plan_id = pp.id), 0) AS remaining, pp.due_date, p.id AS project_id, p.title, p.currency, c.id AS client_id, c.name AS client_name, c.phone AS client_phone
          FROM payment_plans pp JOIN projects p ON p.id = pp.project_id JOIN clients c ON c.id = p.client_id
-         WHERE pp.paid_at IS NULL AND p.status = 'active' AND pp.due_date <= ?`,
+         WHERE pp.paid_at IS NULL AND p.status != 'cancelled' AND pp.due_date <= ?`,
       )
       .bind(soon)
       .all<ClientCols & { id: string; label: string; remaining: number; due_date: string; project_id: string; title: string; currency: Currency | null }>();

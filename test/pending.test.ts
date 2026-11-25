@@ -119,4 +119,14 @@ describe("pending", () => {
     const order = (await pending(env)).items.map((i) => i.urgency);
     expect(order.indexOf("overdue")).toBeLessThan(order.indexOf("today"));
   });
+
+  it("keeps chasing payments after a project is delivered or paused, but not cancelled", async () => {
+    const env = await makeEnv();
+    const { projectId } = await approvedProject(env);
+    await setPlanDue(env, projectId, "2026-12-09");
+    for (const [status, expected] of [["delivered", 1], ["paused", 1], ["cancelled", 0]] as const) {
+      await env.DB.prepare("UPDATE projects SET status = ? WHERE id = ?").bind(status, projectId).run();
+      expect(kinds(await pending(env), "payment")).toHaveLength(expected);
+    }
+  });
 });
