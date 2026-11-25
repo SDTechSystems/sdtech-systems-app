@@ -1,4 +1,5 @@
 import type { Currency } from "./money";
+import type { TemplateKey } from "./templates";
 
 export type { Currency };
 export type Role = "owner" | "collaborator";
@@ -49,6 +50,8 @@ export interface Settings {
   payment: { brebKey: string; bank: string; usdText: string };
   quotes: { validityDays: number; advancePercent: number; conditions: string };
   phaseTemplates: Record<Service, string[]>;
+  templates: Record<TemplateKey, string>;
+  alerts: { staleDays: number; dueSoonDays: number; quoteExpiringDays: number };
 }
 
 export type QuoteStatus = "draft" | "sent" | "approved" | "rejected" | "expired";

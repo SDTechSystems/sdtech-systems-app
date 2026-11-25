@@ -1,4 +1,5 @@
 import { DEFAULT_PHASE_TEMPLATES } from "../shared/phases";
+import { DEFAULT_TEMPLATES, type TemplateKey } from "../shared/templates";
 import type { Service, Settings } from "../shared/types";
 
 /** Condiciones por defecto de la cotización (diseño § 7). */
@@ -16,6 +17,8 @@ export const DEFAULT_SETTINGS: Settings = {
   payment: { brebKey: "3058147293", bank: "Davibank", usdText: "" },
   quotes: { validityDays: 30, advancePercent: 50, conditions: DEFAULT_CONDITIONS },
   phaseTemplates: DEFAULT_PHASE_TEMPLATES,
+  templates: DEFAULT_TEMPLATES,
+  alerts: { staleDays: 7, dueSoonDays: 7, quoteExpiringDays: 5 },
 };
 
 const SERVICES: Service[] = ["web", "marca", "software", "general"];
@@ -32,6 +35,8 @@ export function mergeSettings(base: Settings, patch: Partial<Settings>): Setting
     payment: { ...base.payment, ...patch.payment },
     quotes: { ...base.quotes, ...patch.quotes },
     phaseTemplates: { ...base.phaseTemplates, ...patch.phaseTemplates },
+    templates: { ...base.templates, ...patch.templates },
+    alerts: { ...base.alerts, ...patch.alerts },
   };
 }
 
@@ -46,6 +51,11 @@ export function validSettings(s: Settings): boolean {
   for (const section of [s.company, s.payment] as Record<string, unknown>[]) {
     if (Object.values(section).some((v) => typeof v !== "string")) return false;
   }
+  for (const key of Object.keys(DEFAULT_TEMPLATES) as TemplateKey[]) {
+    const t = s.templates[key];
+    if (typeof t !== "string" || !t.trim()) return false;
+  }
+  for (const v of Object.values(s.alerts)) if (!Number.isInteger(v) || v < 1 || v > 90) return false;
   return typeof s.quotes.conditions === "string";
 }
 

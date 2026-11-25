@@ -1,5 +1,6 @@
 import { formatLongDate } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
+import { DEFAULT_TEMPLATES, fillTemplate } from "../../shared/templates";
 import type { Billing, CatalogItem, PhaseStatus, ProjectStatus, Quote, QuoteStatus, Service } from "../../shared/types";
 import { ApiError } from "./api";
 
@@ -59,9 +60,19 @@ export const phaseStatusLabel: Record<PhaseStatus, string> = { pending: "Pendien
 
 export const firstName = (name: string): string => name.trim().split(/\s+/)[0];
 
-export function quoteWhatsAppText(q: Pick<Quote, "number" | "total" | "currency" | "validUntil">, clientName: string, portalUrl: string): string {
-  const until = q.validUntil ? ` Es válida hasta el ${formatLongDate(q.validUntil)}.` : "";
-  return `Hola ${firstName(clientName)}, te comparto la cotización ${q.number} por ${formatMoney(q.total, q.currency)}. Puedes verla y aprobarla aquí: ${portalUrl}.${until}`;
+export function quoteWhatsAppText(
+  q: Pick<Quote, "number" | "total" | "currency" | "validUntil">,
+  clientName: string,
+  portalUrl: string,
+  template: string = DEFAULT_TEMPLATES.quote,
+): string {
+  return fillTemplate(template, {
+    nombre: firstName(clientName),
+    numero: q.number,
+    total: formatMoney(q.total, q.currency),
+    link: portalUrl,
+    vence: q.validUntil ? formatLongDate(q.validUntil) : "",
+  });
 }
 
 export const formatDate = (date: string): string => formatLongDate(date);
