@@ -47,7 +47,7 @@ export const handleGoogleAdmin: Handler = async (request, env, session, path) =>
   const denied = requireRole(session, "owner");
   if (denied) return denied;
   if (request.method === "DELETE" && !path[1]) {
-    await disconnectGoogle(env.DB);
+    await disconnectGoogle(env);
     await logActivity(env.DB, session.email, "settings", "google", "disconnect").run();
     return json(await googleStatus(env.DB));
   }

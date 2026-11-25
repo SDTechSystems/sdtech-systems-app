@@ -92,7 +92,18 @@ export async function getAccessToken(env: Env): Promise<string | null> {
   return cache.token;
 }
 
-export async function disconnectGoogle(db: D1Database): Promise<void> {
+/** Borra del calendario los eventos que la app creó (no las reuniones) y olvida la conexión. */
+export async function disconnectGoogle(env: Env): Promise<void> {
+  const token = await getAccessToken(env).catch(() => null);
+  if (token) {
+    const { results } = await env.DB.prepare("SELECT google_event_id FROM calendar_links").all<{ google_event_id: string }>();
+    for (const l of results) {
+      await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(l.google_event_id)}?sendUpdates=none`, {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${token}` },
+      }).catch(() => undefined);
+    }
+  }
   cache = null;
-  await db.batch([db.prepare("DELETE FROM settings WHERE key = 'google'"), db.prepare("DELETE FROM calendar_links")]);
+  await env.DB.batch([env.DB.prepare("DELETE FROM settings WHERE key = 'google'"), env.DB.prepare("DELETE FROM calendar_links")]);
 }

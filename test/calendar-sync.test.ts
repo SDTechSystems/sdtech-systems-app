@@ -117,5 +117,40 @@ describe("sync triggers", () => {
     const scheduled: Promise<unknown>[] = [];
     await worker.scheduled({} as ScheduledController, env, { waitUntil: (p: Promise<unknown>) => scheduled.push(p) } as unknown as ExecutionContext);
     expect(scheduled).toHaveLength(1);
+    await Promise.all(scheduled);
+  });
+});
+
+describe("disconnect and portal approvals", () => {
+  it("removes the synced events when Google is disconnected, so reconnecting does not duplicate them", async () => {
+    const { handleGoogleAdmin } = await import("../worker/api/google");
+    const { env, g } = await setup();
+    await syncCalendar(env);
+    await handleGoogleAdmin(jsonRequest("DELETE", `${B}/google`), env, owner, ["google"]);
+    expect(eventCalls(g.calls).filter((c) => c.method === "DELETE")).toHaveLength(1);
+    expect(await links(env)).toEqual([]);
+  });
+
+  it("syncs right after a client approves a quote on the portal", async () => {
+    const { default: worker } = await import("../worker/index");
+    const { handleClients } = await import("../worker/api/clients");
+    const { newClient, sentQuote } = await import("./fixtures");
+    const env = await makeEnv(googleEnv);
+    mockGoogle();
+    await connectGoogle(env);
+    const c = await newClient(env);
+    const q = await sentQuote(env, c.id);
+    const link = ((await (await handleClients(jsonRequest("POST", `${B}/clients/${c.id}/portal-link`, {}), env, owner, ["clients", c.id, "portal-link"])).json()) as { url: string }).url;
+    const token = link.split("/c/")[1];
+    const waits: Promise<unknown>[] = [];
+    const ctx = { waitUntil: (p: Promise<unknown>) => waits.push(p) } as unknown as ExecutionContext;
+    const r = await worker.fetch(
+      new Request(`https://clientes.sdtechsystems.dev/api/portal/${token}/quotes/${q.id}/approve`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "María Gómez" }) }),
+      env,
+      ctx,
+    );
+    expect(r.status).toBe(200);
+    expect(waits).toHaveLength(1);
+    await Promise.all(waits);
   });
 });

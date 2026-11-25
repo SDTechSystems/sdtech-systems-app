@@ -53,7 +53,7 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
-    if (url.hostname === PORTAL_HOST) return handlePortalHost(request, env, url);
+    if (url.hostname === PORTAL_HOST) return handlePortalHost(request, env, url, ctx);
 
     if (url.pathname.startsWith("/api/admin/")) {
       await ensureSchema(env.DB);
@@ -63,7 +63,7 @@ export default {
       const handler = ADMIN[path[0] ?? ""];
       if (!handler) return error(404, "not_found");
       const response = await handler(request, env, session, path);
-      if (request.method !== "GET" && response.ok && CALENDAR_SOURCES.has(path[0])) ctx.waitUntil(syncCalendar(env).catch(() => undefined));
+      if (request.method !== "GET" && response.ok && CALENDAR_SOURCES.has(path[0])) ctx.waitUntil?.(syncCalendar(env).catch(() => undefined));
       return response;
     }
 
@@ -80,7 +80,7 @@ export default {
   },
 };
 
-async function handlePortalHost(request: Request, env: Env, url: URL): Promise<Response> {
+async function handlePortalHost(request: Request, env: Env, url: URL, ctx: ExecutionContext): Promise<Response> {
   const p = url.pathname;
   if (p.startsWith("/brand/") || p.startsWith("/fonts/") || p === "/favicon.ico") return env.ASSETS.fetch(request);
   const isPortal = p.startsWith("/c/") || p.startsWith("/api/portal/");
@@ -93,7 +93,11 @@ async function handlePortalHost(request: Request, env: Env, url: URL): Promise<R
   }
   await ensureSchema(env.DB);
   const parts = p.split("/").filter(Boolean);
-  if (parts[0] === "api") return handlePortalApi(request, env, parts.slice(2));
+  if (parts[0] === "api") {
+    const response = await handlePortalApi(request, env, parts.slice(2));
+    if (response.ok) ctx.waitUntil?.(syncCalendar(env).catch(() => undefined));
+    return response;
+  }
   if (request.method !== "GET") return error(405, "method_not_allowed");
   return handlePortalPage(env, parts[1] ?? "", parts.slice(2));
 }
