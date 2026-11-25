@@ -245,4 +245,17 @@ describe("client portal", () => {
     expect(html).toContain("Hosting · $ 25.000/mes · próximo cobro el 12 de diciembre de 2026");
     expect(html).not.toContain("Dominio viejo");
   });
+
+  it("links every client-facing logo to the portfolio", async () => {
+    const env = await makeEnv();
+    const c = await newClient(env, "María Gómez");
+    await sentQuote(env, c.id);
+    const url = await portalUrl(env, c.id);
+    const portalHtml = await (await fetchPortal(env, url)).text();
+    expect(portalHtml).toMatch(/<a [^>]*href="https:\/\/sdtechsystems\.dev\/es\/"[^>]*><img src="\/brand\/logo-white\.svg"/);
+    const doc = await (await fetchPortal(env, `${url}/cotizacion/COT-0001`)).text();
+    expect(doc).toMatch(/<a [^>]*href="https:\/\/sdtechsystems\.dev\/es\/"[^>]*><img src="\/brand\/logo-color\.svg"/);
+    const verify = await (await fetchPortal(env, `${P}/verificar/ABCDEFGHJK`)).text();
+    expect(verify).toContain('href="https://sdtechsystems.dev/es/"');
+  });
 });

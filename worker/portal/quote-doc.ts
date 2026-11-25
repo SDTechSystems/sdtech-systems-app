@@ -1,7 +1,7 @@
 import { dayOf, formatLongDate } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
 import type { Quote, Settings } from "../../shared/types";
-import { esc, page, qrSvg } from "./html";
+import { brandLogo, esc, page, qrSvg } from "./html";
 
 export interface QuoteDocData {
   quote: Quote;
@@ -58,7 +58,7 @@ export function renderQuoteDocument(d: QuoteDocData): Response {
   const conditions = q.conditions.split("\n").map((l) => l.trim()).filter(Boolean);
   const body = `<div class="tools"><a href="${esc(d.portalUrl)}">← Volver</a><button onclick="window.print()">Guardar PDF</button></div>
 <article class="sheet">
-<div class="top"><img src="/brand/logo-color.svg" alt="${esc(s.company.name)}"><div class="company"><strong style="color:var(--navy)">${esc(s.company.name)}</strong><br>${esc(s.company.phone)}<br>${esc(s.company.email)}<br>${esc(s.company.website)}</div></div>
+<div class="top">${brandLogo("color", s.company.name)}<div class="company"><strong style="color:var(--navy)">${esc(s.company.name)}</strong><br>${esc(s.company.phone)}<br>${esc(s.company.email)}<br>${esc(s.company.website)}</div></div>
 <div class="title"><h1>COTIZACIÓN</h1><span class="num">${esc(q.number)}</span></div>
 <div class="meta"><div class="box"><b>Cliente</b>${esc(c.name)}${clientLines.map((l) => `<br>${esc(l)}`).join("")}</div>
 <div class="box"><b>Fechas</b>Emitida: ${q.issuedAt ? esc(formatLongDate(dayOf(q.issuedAt))) : "—"}<br>Válida hasta: ${q.validUntil ? esc(formatLongDate(q.validUntil)) : "—"}</div></div>

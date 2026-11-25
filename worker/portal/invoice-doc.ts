@@ -1,7 +1,7 @@
 import { dayOf, formatLongDate } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
 import type { Invoice, Settings } from "../../shared/types";
-import { esc, page, qrSvg } from "./html";
+import { brandLogo, esc, page, qrSvg } from "./html";
 
 const METHOD: Record<string, string> = { breb: "Bre-B", nequi: "Nequi", bancolombia: "Bancolombia", efectivo: "Efectivo" };
 
@@ -41,7 +41,7 @@ export function renderInvoiceDocument(inv: Invoice, settings: Settings, portalUr
   const verifyUrl = `clientes.sdtechsystems.dev/verificar/${inv.verifyCode}`;
   const body = `<div class="tools"><a href="${esc(portalUrl)}">← Volver</a><button onclick="window.print()">Guardar PDF</button></div>
 <article class="sheet">${inv.voided ? `<div class="void">ANULADA</div>` : ""}
-<div class="top"><img src="/brand/logo-color.svg" alt="${esc(settings.company.name)}"><div class="company"><strong style="color:var(--navy)">${esc(settings.company.name)}</strong><br>${esc(settings.company.phone)}<br>${esc(settings.company.email)}<br>${esc(settings.company.website)}</div></div>
+<div class="top">${brandLogo("color", settings.company.name)}<div class="company"><strong style="color:var(--navy)">${esc(settings.company.name)}</strong><br>${esc(settings.company.phone)}<br>${esc(settings.company.email)}<br>${esc(settings.company.website)}</div></div>
 <div class="title"><h1>FACTURA</h1><span class="num">${esc(inv.number)}</span></div>
 <div class="meta"><div class="box"><b>Cliente</b>${esc(c.name)}${clientLines.map((l) => `<br>${esc(l)}`).join("")}</div>
 <div class="box"><b>Proyecto</b>${esc(inv.projectTitle)}<br>Emitida: ${esc(formatLongDate(dayOf(inv.issuedAt)))}</div></div>

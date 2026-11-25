@@ -9,6 +9,13 @@ export const PORTAL_HEADERS = {
   "x-frame-options": "DENY",
 };
 
+/** Portafolio de SD Tech Systems: a donde llevan los logos de las páginas que ve el cliente. */
+export const PORTFOLIO_URL = "https://sdtechsystems.dev/es/";
+
+/** Logo enlazado al portafolio (se abre en la misma pestaña, como un sitio normal). */
+export const brandLogo = (variant: "white" | "color", alt = "SD Tech Systems"): string =>
+  `<a class="brand-link" href="${PORTFOLIO_URL}" aria-label="Ir al sitio de SD Tech Systems"><img src="/brand/logo-${variant}.svg" alt="${alt.replace(/"/g, "&quot;")}"></a>`;
+
 const ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 
 /** Escapa todo texto que viene de la base de datos o del cliente. */
@@ -29,6 +36,7 @@ export const BASE_CSS = `
 *{box-sizing:border-box}
 body{margin:0;background:var(--ink);color:var(--text);font-family:"SD Sans",system-ui,sans-serif;line-height:1.55;-webkit-text-size-adjust:100%;font-synthesis:none}
 a{color:var(--cyan)}
+.brand-link{display:inline-block;line-height:0;border-radius:8px}.brand-link img{display:block}
 a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--blue);outline-offset:4px}
 .eyebrow{font:.6875rem "SD Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--white)}
 .eyebrow::before{content:">_";color:var(--cyan);margin-right:.75em;letter-spacing:0}
@@ -52,11 +60,12 @@ const SIMPLE_CSS = `body{min-height:100vh;display:grid;place-items:center;text-a
 export function simplePage(message: string, status = 200): Response {
   return page(
     "SD Tech Systems · Seguimiento",
-    `<main><img src="/brand/logo-white.svg" alt="SD Tech Systems"><span class="eyebrow">Seguimiento de clientes</span><p>${message}</p><p><a href="https://sdtechsystems.dev">sdtechsystems.dev</a></p></main>`,
+    `<main>${brandLogo("white")}<span class="eyebrow">Seguimiento de clientes</span><p>${message}</p><p><a href="https://sdtechsystems.dev">sdtechsystems.dev</a></p></main>`,
     { css: SIMPLE_CSS, status },
   );
 }
 
-export const homePage = (): Response => simplePage("Página de seguimiento de clientes de SD Tech Systems. Abre el enlace que te enviamos para ver tu proyecto.");
+/** La raíz de clientes.sdtechsystems.dev no tiene contenido propio: lleva al portafolio. */
+export const homePage = (): Response => new Response(null, { status: 302, headers: { location: PORTFOLIO_URL, "cache-control": "no-store" } });
 
 export const invalidLinkPage = (): Response => simplePage("Este enlace no es válido. Escríbenos por WhatsApp y te enviamos uno nuevo.", 404);

@@ -2,7 +2,7 @@ import { dayOf, formatLongDate, meetingDayLabel, meetingTimeLabel } from "../../
 import { formatMoney, signedMoney } from "../../shared/money";
 import { waLink } from "../../shared/phone";
 import type { ChangeRequest, Invoice, Meeting, PaymentSummary, Project, Quote, Settings, Subscription } from "../../shared/types";
-import { esc, page } from "./html";
+import { brandLogo, esc, page } from "./html";
 
 export interface PortalData {
   token: string;
@@ -222,7 +222,7 @@ export function renderPortal(d: PortalData): Response {
         }
       : null,
   ].filter((s): s is { title: string; html: string } => !!s);
-  const body = `<header><img src="/brand/logo-white.svg" alt="SD Tech Systems"><span>SEGUIMIENTO</span></header><main class="arrive">
+  const body = `<header>${brandLogo("white")}<span>SEGUIMIENTO</span></header><main class="arrive">
 <p class="eyebrow">Tu página de seguimiento</p>
 <h1>Hola, <em class="caret">${esc(first)}</em></h1><p class="lead">Aquí ves tus cotizaciones y el avance de tus proyectos con ${esc(company.name)}.</p>
 ${sections.map((s, i) => `<h2 data-n="${String(i + 1).padStart(2, "0")}">${s.title}</h2><div class="stagger">${s.html}</div>`).join("")}
