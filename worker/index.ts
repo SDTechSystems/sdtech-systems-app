@@ -2,6 +2,7 @@ import { handleCatalog } from "./api/catalog";
 import { handleClients } from "./api/clients";
 import { handleGoogleAdmin, handleGoogleCallback, handleGoogleConnect } from "./api/google";
 import { handleMe } from "./api/me";
+import { handleChanges } from "./api/changes";
 import { handleMeetings } from "./api/meetings";
 import { handlePending } from "./api/pending";
 import { handleReminders } from "./api/reminders";
@@ -35,10 +36,11 @@ const ADMIN: Record<string, Handler> = {
   pending: handlePending,
   google: handleGoogleAdmin,
   meetings: handleMeetings,
+  changes: handleChanges,
 };
 
 /** Cambios del panel que mueven fechas del calendario. */
-const CALENDAR_SOURCES = new Set(["projects", "phases", "payment-plans", "payments", "quotes"]);
+const CALENDAR_SOURCES = new Set(["projects", "phases", "payment-plans", "payments", "quotes", "changes"]);
 
 export default {
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {

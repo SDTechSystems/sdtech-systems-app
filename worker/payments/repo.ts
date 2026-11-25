@@ -1,4 +1,5 @@
 import { todayBogota } from "../../shared/dates";
+import { approvedChangesTotal } from "../changes/repo";
 import type { Currency, Payment, PaymentMethod, PaymentPlan, PaymentSummary, PlanStatus } from "../../shared/types";
 
 export const PAYMENT_METHODS: PaymentMethod[] = ["nequi", "bancolombia", "efectivo", "breb"];
@@ -46,9 +47,11 @@ export async function loadPayments(db: D1Database, projectId: string, today = to
     paidAt: p.paid_at,
     paidAmount: paymentList.filter((x) => x.planId === p.id).reduce((s, x) => s + x.amount, 0),
   }));
-  const total = project?.total ?? 0;
+  const baseTotal = project?.total ?? 0;
+  const changesTotal = await approvedChangesTotal(db, projectId);
+  const total = baseTotal + changesTotal;
   const paid = paymentList.reduce((s, x) => s + x.amount, 0);
-  return { currency: project?.currency ?? "COP", total, paid, balance: total - paid, plans: planList, payments: paymentList };
+  return { currency: project?.currency ?? "COP", baseTotal, changesTotal, total, paid, balance: total - paid, plans: planList, payments: paymentList };
 }
 
 /** Marca o desmarca un compromiso según lo que ya se le pagó. */

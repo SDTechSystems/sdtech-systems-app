@@ -63,4 +63,11 @@ export const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS idx_meetings_client ON meetings (client_id, start_at)`,
     ],
   },
+  {
+    id: "0005_changes",
+    statements: [
+      `CREATE TABLE IF NOT EXISTS change_requests (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('adjustment','cost')), description TEXT NOT NULL, amount INTEGER, status TEXT NOT NULL CHECK(status IN ('pending','approved','rejected','resolved','converted')), requested_by TEXT NOT NULL CHECK(requested_by IN ('client','owner')), decided_by TEXT, approved_name TEXT, client_comment TEXT, snapshot TEXT, source_id TEXT, created_at TEXT NOT NULL, decided_at TEXT)`,
+      `CREATE INDEX IF NOT EXISTS idx_change_requests_project ON change_requests (project_id, created_at)`,
+    ],
+  },
 ];

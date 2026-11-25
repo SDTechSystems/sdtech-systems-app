@@ -151,6 +151,10 @@ export interface Payment {
 
 export interface PaymentSummary {
   currency: Currency;
+  /** Total de la cotización (o el acordado a mano). */
+  baseTotal: number;
+  /** Suma de los cambios de costo aprobados. */
+  changesTotal: number;
   total: number;
   paid: number;
   balance: number;
@@ -201,4 +205,22 @@ export interface Meeting {
   meetUrl: string | null;
   googleEventId: string | null;
   status: "scheduled" | "cancelled";
+}
+
+export type ChangeKind = "adjustment" | "cost";
+export type ChangeStatus = "pending" | "approved" | "rejected" | "resolved" | "converted";
+
+export interface ChangeRequest {
+  id: string;
+  projectId: string;
+  kind: ChangeKind;
+  description: string;
+  amount: number | null;
+  status: ChangeStatus;
+  requestedBy: "client" | "owner";
+  decidedBy: "client" | "owner" | null;
+  approvedName: string | null;
+  clientComment: string | null;
+  createdAt: string;
+  decidedAt: string | null;
 }
