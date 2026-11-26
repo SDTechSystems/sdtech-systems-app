@@ -16,3 +16,6 @@ export function newMethodId(name: string, existing: PaymentMethodOption[]): stri
   while (taken.has(`${base}-${n}`)) n++;
   return `${base}-${n}`;
 }
+
+/** Medio que se propone al registrar un pago: el primero activo en Ajustes. */
+export const firstActiveMethod = (methods: PaymentMethodOption[]): string => methods.find((m) => m.active)?.id ?? "";

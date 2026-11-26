@@ -39,6 +39,16 @@ const ERRORS: Record<string, string> = {
   forbidden: "No tienes permiso para esto",
   lines_required: "No hay nada que cobrar todavía: agrega al menos una línea",
   nothing_paid: "Esa cuenta de cobro aún no tiene pagos: registra el pago antes de emitir el recibo",
+  invalid_line: "Revisa las líneas: cada una necesita título, cantidad y valor",
+  invalid_plan: "Esa promesa ya está pagada o no es de este proyecto",
+  plan_already_billed: "Esa promesa ya está en otra cuenta de cobro abierta",
+  plan_in_collection: "Esa promesa está en una cuenta de cobro: anúlala primero",
+  invalid_collection: "Esa cuenta de cobro ya no está vigente (anulada o de otro proyecto)",
+  invalid_payment: "Revisa los pagos marcados: alguno no es de este proyecto",
+  invalid_url: "El link de pago debe empezar por https://",
+  delivery_url_required: "Primero guarda un link o sube la entrega",
+  invalid_amount: "Revisa el valor: debe ser mayor que 0",
+  invalid_method: "Elige un medio de pago activo",
 };
 
 export function errorMessage(e: unknown): string {

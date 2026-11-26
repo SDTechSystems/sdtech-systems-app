@@ -7,11 +7,10 @@ import { BRAND_ROUNDS_PHASE } from "../../shared/phases";
 import { formatMoney } from "../../shared/money";
 import { fillTemplate } from "../../shared/templates";
 import type { ActivityEntry, Client, Phase, PhaseStatus, Project, ProjectStatus } from "../../shared/types";
-import { PaymentsCard } from "@/components/PaymentsCard";
 import { MeetingsCard } from "@/components/MeetingsCard";
 import { ChangesCard } from "@/components/ChangesCard";
 import { DeliveryCard } from "@/components/DeliveryCard";
-import { InvoicesCard } from "@/components/InvoicesCard";
+import { ProjectBilling } from "@/components/ProjectBilling";
 import { ActivityCard } from "@/components/ActivityCard";
 import type { PaymentSummary } from "../../shared/types";
 import { useSettingsQuery } from "@/lib/useSettings";
@@ -218,9 +217,7 @@ export default function ProjectDetail() {
 
       {owner && client.data && <DeliveryCard project={p} client={client.data.client} payments={payments.data} />}
 
-      {owner && client.data && <InvoicesCard projectId={p.id} client={client.data.client} />}
-
-      {owner && client.data && <PaymentsCard projectId={p.id} client={client.data.client} lastReminders={lastReminders} />}
+      {owner && client.data && <ProjectBilling project={p} client={client.data.client} lastReminders={lastReminders} />}
 
       <Card>
         <CardHeader className="pb-2">

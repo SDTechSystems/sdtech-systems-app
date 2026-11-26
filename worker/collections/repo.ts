@@ -16,6 +16,7 @@ interface Row {
   drive_file_id: string | null;
   voided_at: string | null;
   plan_ids: string | null;
+  payment_ids: string | null;
   paid: number;
 }
 
@@ -27,7 +28,8 @@ const COUNTS = `p.collection_id = c.id OR (p.created_at >= c.created_at AND p.pl
 const PAID = `(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE ${COUNTS})`;
 
 const SELECT = `SELECT c.id, c.number, c.project_id, c.client_id, c.issued_at, c.currency, c.total, c.due_date, c.snapshot, c.drive_file_id, c.voided_at,
-  (SELECT GROUP_CONCAT(cp.plan_id) FROM collection_plans cp WHERE cp.collection_id = c.id) AS plan_ids, ${PAID} AS paid FROM collections c`;
+  (SELECT GROUP_CONCAT(cp.plan_id) FROM collection_plans cp WHERE cp.collection_id = c.id) AS plan_ids,
+  (SELECT GROUP_CONCAT(p.id) FROM payments p WHERE ${COUNTS}) AS payment_ids, ${PAID} AS paid FROM collections c`;
 
 export const collectionStatus = (total: number, paid: number, voided: boolean): CollectionStatus =>
   voided ? "voided" : paid >= total ? "paid" : paid > 0 ? "partial" : "pending";
@@ -44,6 +46,7 @@ const toCollection = (r: Row): Collection => {
     total: r.total,
     dueDate: r.due_date,
     planIds: r.plan_ids ? r.plan_ids.split(",") : [],
+    paymentIds: r.payment_ids ? r.payment_ids.split(",") : [],
     paid: r.paid,
     status: collectionStatus(r.total, r.paid, !!r.voided_at),
     driveFileId: r.drive_file_id,

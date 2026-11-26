@@ -97,6 +97,9 @@ export const handlePaymentPlans: Handler = async (request, env, session, path) =
   if (!label) return error(400, "label_required");
   if (body.amount !== undefined && !validAmount(body.amount)) return error(400, "invalid_amount");
   if (body.dueDate !== undefined && !isDate(body.dueDate)) return error(400, "invalid_date");
+  // Promesa y cuenta de cobro nunca dicen cosas distintas: el valor y la fecha se congelan mientras una cuenta la cobre.
+  const moneyChanged = (body.amount !== undefined && body.amount !== plan.amount) || (body.dueDate !== undefined && body.dueDate !== plan.due_date);
+  if (moneyChanged && (await planInCollection(db, id))) return error(409, "plan_in_collection");
   const paidAt = body.paid === true ? plan.paid_at ?? now() : body.paid === false ? null : plan.paid_at;
   await db.batch([
     db

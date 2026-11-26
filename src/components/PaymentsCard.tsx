@@ -1,47 +1,59 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, MessageCircle, Plus, Trash2, Wallet } from "lucide-react";
+import { Check, FileText, MessageCircle, Plus, Trash2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { addDays, todayBogota } from "../../shared/dates";
 import { formatMoney, parseMoneyInput, signedMoney } from "../../shared/money";
 import { fillTemplate } from "../../shared/templates";
-import type { Client, PaymentMethod, PaymentPlan, PaymentSummary } from "../../shared/types";
+import type { Client, Collection, PaymentPlan, PaymentSummary } from "../../shared/types";
+import type { PaymentTarget } from "@/components/PaymentDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { methodLabel } from "../../shared/payment-methods";
 import { apiGet, apiSend } from "@/lib/api";
 import { errorMessage, formatDate, formatDateTime } from "@/lib/labels";
+import { priceText } from "@/lib/money-input";
 import { getPortalUrl } from "@/lib/quote-actions";
 import { useSettingsQuery } from "@/lib/useSettings";
 import { logReminder, openWhatsApp, paymentVars } from "@/lib/whatsapp";
 
 const STATUS_STYLE = { paid: "text-emerald-400", overdue: "text-rose-400 font-semibold", pending: "text-muted-foreground" } as const;
 
-type Dialog = { type: "plan" } | { type: "payment"; plan?: PaymentPlan } | null;
-
-export function PaymentsCard({ projectId, client, lastReminders }: { projectId: string; client: Pick<Client, "id" | "name" | "phone">; lastReminders: Record<string, string> }) {
+export function PaymentsCard({
+  projectId,
+  client,
+  lastReminders,
+  collections,
+  onBill,
+  onPay,
+}: {
+  projectId: string;
+  client: Pick<Client, "id" | "name" | "phone">;
+  lastReminders: Record<string, string>;
+  collections: Collection[];
+  /** Abre el editor de cuenta de cobro con esta promesa. */
+  onBill: (plan: PaymentPlan) => void;
+  onPay: (target: PaymentTarget) => void;
+}) {
   const qc = useQueryClient();
   const key = ["payments", projectId];
   const { data } = useQuery({ queryKey: key, queryFn: () => apiGet<PaymentSummary>(`/api/admin/projects/${projectId}/payments`) });
   const settings = useSettingsQuery();
   const methods = settings.data?.settings.payment.methods ?? [];
-  const [dialog, setDialog] = useState<Dialog>(null);
+  const [planOpen, setPlanOpen] = useState(false);
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
-  const [method, setMethod] = useState<PaymentMethod>("breb");
-  const [note, setNote] = useState("");
-  const [planChoice, setPlanChoice] = useState("none");
 
   const done = (r: PaymentSummary) => {
     qc.setQueryData(key, r);
     qc.invalidateQueries({ queryKey: ["pending"] });
     qc.invalidateQueries({ queryKey: ["project", projectId] });
-    setDialog(null);
+    qc.invalidateQueries({ queryKey: ["collections", projectId] });
+    setPlanOpen(false);
   };
   const call = useMutation({
     mutationFn: ({ method: m, path, body }: { method: "POST" | "PATCH" | "DELETE"; path: string; body?: unknown }) => apiSend<PaymentSummary>(m, path, body),
@@ -54,19 +66,9 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
 
   const openPlan = () => {
     setLabel(data?.plans.length ? "Saldo" : "Anticipo");
-    setAmount(data ? formatMoney(Math.max(data.balance - (data.plans.filter((p) => p.status !== "paid").reduce((s, p) => s + p.amount - p.paidAmount, 0)), 0), data.currency).replace(/^US\$ |^\$ /, "") : "");
+    setAmount(data ? priceText(Math.max(data.balance - data.plans.filter((p) => p.status !== "paid").reduce((s, p) => s + p.amount - p.paidAmount, 0), 0), data.currency) : "");
     setDate(addDays(todayBogota(), 7));
-    setDialog({ type: "plan" });
-  };
-  const openPayment = (plan?: PaymentPlan) => {
-    // Sin compromiso elegido, propone el primero pendiente para que el pago lo descuente.
-    const target = plan ?? data?.plans.find((p) => p.status !== "paid");
-    setPlanChoice(target?.id ?? "none");
-    setAmount(target ? formatMoney(target.amount - target.paidAmount, data!.currency).replace(/^US\$ |^\$ /, "") : "");
-    setDate(todayBogota());
-    setMethod("breb");
-    setNote("");
-    setDialog({ type: "payment", plan });
+    setPlanOpen(true);
   };
   const remind = async (plan: PaymentPlan) => {
     if (!data || !settings.data) return;
@@ -82,6 +84,8 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
 
   if (!data) return null;
   const m = (n: number) => formatMoney(n, data.currency);
+  // La cuenta abierta que ya cobra cada promesa (una a la vez).
+  const billedIn = new Map(collections.filter((c) => c.status === "pending" || c.status === "partial").flatMap((c) => c.planIds.map((id) => [id, c.number] as const)));
 
   return (
     <Card>
@@ -93,7 +97,7 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
           <Button size="sm" variant="ghost" onClick={openPlan}>
             <Plus className="h-4 w-4" /> Compromiso
           </Button>
-          <Button size="sm" variant="outline" onClick={() => openPayment()}>
+          <Button size="sm" variant="outline" onClick={() => onPay({})}>
             <Plus className="h-4 w-4" /> Pago
           </Button>
         </div>
@@ -134,11 +138,17 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
                   <>
                     {p.paidAmount > 0 && <p className="text-xs text-muted-foreground">Abonado {m(p.paidAmount)} · faltan {m(p.amount - p.paidAmount)}</p>}
                     {lastReminders[p.id] && <p className="text-xs text-muted-foreground">Último recordatorio: {formatDateTime(lastReminders[p.id])}</p>}
+                    {billedIn.has(p.id) && <p className="text-xs text-muted-foreground">En la cuenta de cobro {billedIn.get(p.id)}</p>}
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" variant="whatsapp" onClick={() => remind(p)}>
                         <MessageCircle className="h-4 w-4" /> Cobrar por WhatsApp
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => openPayment(p)}>
+                      {!billedIn.has(p.id) && (
+                        <Button size="sm" variant="outline" onClick={() => onBill(p)}>
+                          <FileText className="h-4 w-4" /> Cuenta de cobro
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline" onClick={() => onPay({ plan: p })}>
                         Registrar pago
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => call.mutate({ method: "PATCH", path: `/api/admin/payment-plans/${p.id}`, body: { paid: true } })}>
@@ -180,81 +190,32 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
         )}
       </CardContent>
 
-      <Dialog open={dialog !== null} onOpenChange={(o) => !o && setDialog(null)}>
+      <Dialog open={planOpen} onOpenChange={setPlanOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{dialog?.type === "plan" ? "Nuevo compromiso de pago" : dialog?.plan ? `Pago de «${dialog.plan.label}»` : "Registrar pago"}</DialogTitle>
+            <DialogTitle>Nuevo compromiso de pago</DialogTitle>
           </DialogHeader>
           <form
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
-              const value = parseMoneyInput(amount, data.currency) ?? 0;
-              if (dialog?.type === "plan") call.mutate({ method: "POST", path: `/api/admin/projects/${projectId}/payment-plans`, body: { label, amount: value, dueDate: date } });
-              else call.mutate({ method: "POST", path: `/api/admin/projects/${projectId}/payments`, body: { amount: value, paidOn: date, method, planId: dialog?.plan?.id ?? (planChoice === "none" ? null : planChoice), note } });
+              call.mutate({ method: "POST", path: `/api/admin/projects/${projectId}/payment-plans`, body: { label, amount: parseMoneyInput(amount, data.currency) ?? 0, dueDate: date } });
             }}
           >
-            {dialog?.type === "plan" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="plabel">Concepto</Label>
-                <Input id="plabel" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Anticipo, Abono, Saldo, Cuota 2…" required />
-              </div>
-            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="plabel">Concepto</Label>
+              <Input id="plabel" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Anticipo, Abono, Saldo, Cuota 2…" required />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="pamount">Monto</Label>
-                <Input id="pamount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+                <Label htmlFor="plamount">Monto</Label>
+                <Input id="plamount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} required />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="pdate">{dialog?.type === "plan" ? "Fecha acordada" : "Fecha del pago"}</Label>
-                <Input id="pdate" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+                <Label htmlFor="pldate">Fecha acordada</Label>
+                <Input id="pldate" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
               </div>
             </div>
-            {dialog?.type === "payment" && !dialog.plan && data.plans.some((p) => p.status !== "paid") && (
-              <div className="space-y-1.5">
-                <Label>¿A qué compromiso corresponde?</Label>
-                <Select value={planChoice} onValueChange={setPlanChoice}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {data.plans
-                      .filter((p) => p.status !== "paid")
-                      .map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.label} · faltan {formatMoney(p.amount - p.paidAmount, data.currency)}
-                        </SelectItem>
-                      ))}
-                    <SelectItem value="none">Ninguno (abono general)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {dialog?.type === "payment" && (
-              <>
-                <div className="space-y-1.5">
-                  <Label>Medio</Label>
-                  <Select value={method} onValueChange={(v) => setMethod(v as PaymentMethod)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {methods
-                        .filter((x) => x.active)
-                        .map((x) => (
-                          <SelectItem key={x.id} value={x.id}>
-                            {x.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="pnote">Nota interna (opcional)</Label>
-                  <Input id="pnote" value={note} onChange={(e) => setNote(e.target.value)} />
-                </div>
-              </>
-            )}
             <Button type="submit" className="w-full" disabled={call.isPending}>
               Guardar
             </Button>

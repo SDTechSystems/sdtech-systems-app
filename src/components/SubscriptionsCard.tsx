@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiGet, apiSend } from "@/lib/api";
 import { errorMessage, formatDate } from "@/lib/labels";
+import { firstActiveMethod } from "@/lib/payment-methods";
 import { useSettingsQuery } from "@/lib/useSettings";
 import { logReminder, openWhatsApp, subscriptionVars } from "@/lib/whatsapp";
 
@@ -26,7 +27,9 @@ export function SubscriptionRow({ s, showClient }: { s: Subscription; showClient
   const settings = useSettingsQuery();
   const [editing, setEditing] = useState(false);
   const [paying, setPaying] = useState(false);
-  const [method, setMethod] = useState<PaymentMethod>("breb");
+  const [picked, setMethod] = useState<PaymentMethod>("");
+  // Hasta que Juan elija otro, el primer medio activo de Ajustes.
+  const method = picked || firstActiveMethod(settings.data?.settings.payment.methods ?? []);
   const [paidOn, setPaidOn] = useState(todayBogota());
   const pay = useMutation({
     mutationFn: () => apiSend<{ subscription: Subscription }>("POST", `/api/admin/subscriptions/${s.id}/pay`, { method, paidOn }),

@@ -138,9 +138,9 @@ describe("collections", () => {
     await pay(env, projectId, { amount: 50000, planId });
     await tick();
     const c = await issued(env, projectId, { lines: [planLine(planId)] });
-    expect(c).toMatchObject({ total: 400000, paid: 0, status: "pending" });
-    await pay(env, projectId, { amount: 350000, planId });
-    expect(await getCollection(env, c.id)).toMatchObject({ paid: 350000, status: "partial" });
+    expect(c).toMatchObject({ total: 400000, paid: 0, status: "pending", paymentIds: [] });
+    const after = ((await (await pay(env, projectId, { amount: 350000, planId })).json()) as PaymentSummary).payments.find((p) => p.amount === 350000)!;
+    expect(await getCollection(env, c.id)).toMatchObject({ paid: 350000, status: "partial", paymentIds: [after.id] });
     expect(await (await worker.fetch(new Request(await portalUrl(env, client.id)), env, ctx)).text()).toContain("Abonada · falta $ 50.000");
     await pay(env, projectId, { amount: 50000, planId });
     expect(await getCollection(env, c.id)).toMatchObject({ paid: 400000, status: "paid" });

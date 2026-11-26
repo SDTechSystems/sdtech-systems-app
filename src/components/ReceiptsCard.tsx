@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, FileCheck2, MessageCircle, X } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ExternalLink, FileCheck2, MessageCircle, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { dayOf } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
@@ -7,15 +7,15 @@ import type { Client, Invoice } from "../../shared/types";
 import { Pill } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { apiGet, apiSend } from "@/lib/api";
+import { apiSend } from "@/lib/api";
 import { errorMessage, firstName, formatDate } from "@/lib/labels";
 import { getPortalUrl } from "@/lib/quote-actions";
 import { openWhatsApp } from "@/lib/whatsapp";
 
-export function InvoicesCard({ projectId, client }: { projectId: string; client: Pick<Client, "id" | "name" | "phone"> }) {
+/** Recibos de pago del proyecto. «Emitir recibo» abre el editor (modo recibo). */
+export function ReceiptsCard({ projectId, client, invoices, onNew }: { projectId: string; client: Pick<Client, "id" | "name" | "phone">; invoices: Invoice[]; onNew: () => void }) {
   const qc = useQueryClient();
   const key = ["invoices", projectId];
-  const { data } = useQuery({ queryKey: key, queryFn: () => apiGet<{ invoices: Invoice[] }>(`/api/admin/projects/${projectId}/invoices`) });
   const call = useMutation({
     mutationFn: ({ path }: { path: string }) => apiSend("POST", path, {}),
     onSuccess: () => {
@@ -41,28 +41,25 @@ export function InvoicesCard({ projectId, client }: { projectId: string; client:
         <CardTitle className="flex items-center gap-2 text-base">
           <FileCheck2 className="h-4 w-4" /> Recibos de pago
         </CardTitle>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={call.isPending}
-          onClick={() => confirm("Se guardará una copia de cómo está el proyecto hoy: ítems, cambios aprobados y los pagos que aún no tienen recibo. ¿Emitir el recibo?") && call.mutate({ path: `/api/admin/projects/${projectId}/invoices` })}
-        >
-          Emitir recibo
+        <Button size="sm" variant="outline" onClick={onNew}>
+          <Plus className="h-4 w-4" /> Emitir recibo
         </Button>
       </CardHeader>
       <CardContent className="divide-y">
-        {data?.invoices.length ? (
-          data.invoices.map((inv) => (
+        {invoices.length ? (
+          invoices.map((inv) => (
             <div key={inv.id} className="space-y-2 py-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-medium">{inv.number}</p>
                   <p className="text-sm text-muted-foreground">
                     {formatDate(dayOf(inv.issuedAt))} · total {formatMoney(inv.total, inv.currency)}
-                    {inv.number.startsWith("FAC-")
-                      ? ` · saldo ${formatMoney(Math.max(inv.balance, 0), inv.currency)}`
-                      : inv.projectBalance !== null && ` · saldo del proyecto ${formatMoney(Math.max(inv.projectBalance, 0), inv.currency)}`}
+                    {inv.number.startsWith("FAC-") && ` · saldo ${formatMoney(Math.max(inv.balance, 0), inv.currency)}`}
+                    {inv.collectionNumber && ` · de ${inv.collectionNumber}`}
                   </p>
+                  {!inv.number.startsWith("FAC-") && inv.projectBalance !== null && (
+                    <p className="text-sm text-muted-foreground">Saldo del proyecto: {formatMoney(Math.max(inv.projectBalance, 0), inv.currency)}</p>
+                  )}
                   <p className="sd-mono text-[11px] text-muted-foreground">Verificación: {inv.verifyCode}</p>
                 </div>
                 {inv.voided ? <Pill tone="red">Anulado</Pill> : <Pill tone="green">Emitido</Pill>}

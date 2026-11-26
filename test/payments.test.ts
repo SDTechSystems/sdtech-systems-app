@@ -4,6 +4,7 @@ import { MIGRATIONS } from "../worker/db/migrations";
 import { ensureSchema, resetSchemaFlag } from "../worker/db/migrate";
 import { handleSettings } from "../worker/api/settings";
 import { handlePaymentPlans, handlePayments, handleProjectPayments } from "../worker/api/payments";
+import { handleCollections, handleProjectCollections } from "../worker/api/collections";
 import { addDays, todayBogota } from "../shared/dates";
 import type { PaymentSummary } from "../shared/types";
 import { jsonRequest, makeEnv } from "./helpers";
@@ -73,6 +74,30 @@ describe("payments", () => {
     const planId = (await getSummary(env, projectId)).plans[0].id;
     const s = await summary(await handlePaymentPlans(jsonRequest("PATCH", `${B}/payment-plans/${planId}`, { paid: true }), env, owner, ["payment-plans", planId]));
     expect(s.plans[0].status).toBe("paid");
+  });
+
+  it("keeps a promise's amount and date fixed while a collection bills it", async () => {
+    const env = await makeEnv();
+    const { projectId } = await approvedProject(env);
+    const plan = (await getSummary(env, projectId)).plans[0];
+    const r = await handleProjectCollections(
+      jsonRequest("POST", `${B}/projects/${projectId}/collections`, { lines: [{ source: "plan", planId: plan.id, title: "Anticipo", detail: "", quantity: 1, unitPrice: 1 }] }),
+      env,
+      owner,
+      ["projects", projectId, "collections"],
+    );
+    const { collection } = (await r.json()) as { collection: { id: string } };
+    const patch = (body: object) => handlePaymentPlans(jsonRequest("PATCH", `${B}/payment-plans/${plan.id}`, body), env, owner, ["payment-plans", plan.id]);
+    for (const body of [{ amount: 400000 }, { dueDate: "2026-12-24" }]) {
+      const res = await patch(body);
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: "plan_in_collection" });
+    }
+    // Lo mismo que ya tiene, la etiqueta y «pagado» sí se pueden cambiar.
+    expect((await patch({ amount: plan.amount, dueDate: plan.dueDate, label: "Anticipo 50 %" })).status).toBe(200);
+    expect((await summary(await patch({ paid: true }))).plans[0]).toMatchObject({ label: "Anticipo 50 %", amount: 385000, status: "paid" });
+    await handleCollections(jsonRequest("POST", `${B}/collections/${collection.id}/void`, {}), env, owner, ["collections", collection.id, "void"]);
+    expect((await summary(await patch({ amount: 400000 }))).plans[0].amount).toBe(400000);
   });
 
   it("validates method, amount and plan", async () => {

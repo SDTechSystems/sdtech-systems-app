@@ -316,6 +316,8 @@ export interface Collection {
   total: number;
   dueDate: string | null;
   planIds: string[];
+  /** Los pagos que cuentan para `paid` (para preseleccionarlos al emitir el recibo). */
+  paymentIds: string[];
   paid: number;
   status: CollectionStatus;
   lines: InvoiceLine[];
