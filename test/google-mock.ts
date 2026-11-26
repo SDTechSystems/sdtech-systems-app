@@ -61,6 +61,7 @@ function fakeDrive(): { drive: FakeDrive; handle: (method: string, url: string, 
     }
     if (method === "PATCH") {
       if (typeof b.name === "string") f.name = b.name;
+      if (typeof b.trashed === "boolean") f.trashed = b.trashed;
       return Response.json({ id });
     }
     if (method === "GET") return Response.json({ id, trashed: f.trashed, parents: f.parents });

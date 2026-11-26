@@ -64,39 +64,63 @@ interface DriveSettings {
   clientsId: string;
 }
 
+const trash = (env: Env, id: string) => call<{ id: string }>(env, "PATCH", `${FILES}/${encodeURIComponent(id)}?fields=id`, { trashed: true });
+
+/**
+ * La base de datos decide entre dos creaciones a la vez (dos subidas del mismo proyecto): cada una guarda su id solo si el
+ * valor sigue siendo el que leyó. Si perdió, usa el id ganador y manda a la papelera lo que acaba de crear (mejor esfuerzo).
+ */
+async function settle(env: Env, saved: boolean, winner: () => Promise<string | null | undefined>, mine: string, created: string[]): Promise<string> {
+  if (saved) return mine;
+  const theirs = await winner();
+  if (!theirs) return mine;
+  for (const id of created) await trash(env, id).catch(() => undefined);
+  return theirs;
+}
+
+const readDriveSettings = async (db: D1Database) => (await db.prepare("SELECT value FROM settings WHERE key = 'drive'").first<{ value: string }>())?.value ?? null;
+
 /** «SD Tech Systems/Clientes»: devuelve el id de «Clientes». Los ids quedan en settings('drive'). */
 async function ensureClientsRoot(env: Env): Promise<string> {
   const db = env.DB;
-  const row = await db.prepare("SELECT value FROM settings WHERE key = 'drive'").first<{ value: string }>();
-  const saved = row ? (JSON.parse(row.value) as Partial<DriveSettings>) : {};
+  const raw = await readDriveSettings(db);
+  const saved = raw ? (JSON.parse(raw) as Partial<DriveSettings>) : {};
   if (saved.clientsId && (await alive(env, saved.clientsId))) return saved.clientsId;
   const rootId = await ensureFolder(env, ROOT_NAME, null, saved.rootId);
   const clientsId = await ensureFolder(env, CLIENTS_NAME, rootId);
-  await db
-    .prepare("INSERT INTO settings (key, value) VALUES ('drive', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
-    .bind(JSON.stringify({ rootId, clientsId } satisfies DriveSettings))
-    .run();
-  return clientsId;
+  const value = JSON.stringify({ rootId, clientsId } satisfies DriveSettings);
+  const r = raw
+    ? await db.prepare("UPDATE settings SET value = ? WHERE key = 'drive' AND value = ?").bind(value, raw).run()
+    : await db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('drive', ?)").bind(value).run();
+  const created = rootId === saved.rootId ? [clientsId] : [clientsId, rootId];
+  return settle(env, r.meta.changes > 0, async () => {
+    const now = await readDriveSettings(db);
+    return now ? (JSON.parse(now) as Partial<DriveSettings>).clientsId : null;
+  }, clientsId, created);
 }
 
 export async function ensureClientFolder(env: Env, clientId: string): Promise<string> {
-  const row = await env.DB.prepare("SELECT name, drive_folder_id FROM clients WHERE id = ?").bind(clientId).first<{ name: string; drive_folder_id: string | null }>();
+  const db = env.DB;
+  const row = await db.prepare("SELECT name, drive_folder_id FROM clients WHERE id = ?").bind(clientId).first<{ name: string; drive_folder_id: string | null }>();
   if (!row) throw new Error("client_not_found");
   if (row.drive_folder_id && (await alive(env, row.drive_folder_id))) return row.drive_folder_id;
   const id = await ensureFolder(env, row.name, await ensureClientsRoot(env));
-  await env.DB.prepare("UPDATE clients SET drive_folder_id = ? WHERE id = ?").bind(id, clientId).run();
-  return id;
+  const r = await db.prepare("UPDATE clients SET drive_folder_id = ? WHERE id = ? AND drive_folder_id IS ?").bind(id, clientId, row.drive_folder_id).run();
+  const winner = async () => (await db.prepare("SELECT drive_folder_id AS f FROM clients WHERE id = ?").bind(clientId).first<{ f: string | null }>())?.f;
+  return settle(env, r.meta.changes > 0, winner, id, [id]);
 }
 
 export async function ensureProjectFolder(env: Env, projectId: string): Promise<string> {
-  const row = await env.DB.prepare("SELECT client_id, title, drive_folder_id FROM projects WHERE id = ?")
+  const db = env.DB;
+  const row = await db.prepare("SELECT client_id, title, drive_folder_id FROM projects WHERE id = ?")
     .bind(projectId)
     .first<{ client_id: string; title: string; drive_folder_id: string | null }>();
   if (!row) throw new Error("project_not_found");
   if (row.drive_folder_id && (await alive(env, row.drive_folder_id))) return row.drive_folder_id;
   const id = await ensureFolder(env, row.title, await ensureClientFolder(env, row.client_id));
-  await env.DB.prepare("UPDATE projects SET drive_folder_id = ? WHERE id = ?").bind(id, projectId).run();
-  return id;
+  const r = await db.prepare("UPDATE projects SET drive_folder_id = ? WHERE id = ? AND drive_folder_id IS ?").bind(id, projectId, row.drive_folder_id).run();
+  const winner = async () => (await db.prepare("SELECT drive_folder_id AS f FROM projects WHERE id = ?").bind(projectId).first<{ f: string | null }>())?.f;
+  return settle(env, r.meta.changes > 0, winner, id, [id]);
 }
 
 export interface UploadOptions {
@@ -151,8 +175,14 @@ type Ctx = Pick<ExecutionContext, "waitUntil"> | undefined;
 
 /** Trabajo de Drive después de responder: solo con Drive conectado, y sin fallar nunca la petición. */
 export async function driveLater(env: Env, ctx: Ctx, job: () => Promise<unknown>): Promise<void> {
-  if (!ctx?.waitUntil || !(await driveReady(env.DB))) return;
-  ctx.waitUntil(job().catch(() => undefined));
+  if (!ctx?.waitUntil) return;
+  try {
+    // Corre después de que el cambio ya quedó guardado: un error aquí no puede fallar la petición.
+    if (!(await driveReady(env.DB))) return;
+    ctx.waitUntil(job().catch(() => undefined));
+  } catch {
+    /* sin Drive esta vez */
+  }
 }
 
 /** Crea la carpeta del proyecto recién creado (a mano, o al aprobar la cotización en el panel o el portal). */

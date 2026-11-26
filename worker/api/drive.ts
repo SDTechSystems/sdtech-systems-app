@@ -89,8 +89,19 @@ async function completeUpload(request: Request, env: Env, actor: string): Promis
   const db = env.DB;
 
   if (target.type !== "delivery") {
-    const r = await db.prepare(`UPDATE ${DOCS[target.type]} SET drive_file_id = ? WHERE id = ?`).bind(fileId, target.id).run();
-    return r.meta.changes ? json({ ok: true }) : error(400, "invalid_target");
+    const table = DOCS[target.type];
+    // La carpeta esperada: la del proyecto, o la del cliente si es una cotización sin proyecto (no se crea aquí).
+    const doc = await db
+      .prepare(
+        `SELECT COALESCE(p.drive_folder_id, CASE WHEN d.project_id IS NULL THEN c.drive_folder_id END) AS folder FROM ${table} d LEFT JOIN projects p ON p.id = d.project_id LEFT JOIN clients c ON c.id = d.client_id WHERE d.id = ?`,
+      )
+      .bind(target.id)
+      .first<{ folder: string | null }>();
+    if (!doc) return error(400, "invalid_target");
+    const parents = doc.folder ? await parentsOf(env, fileId) : null;
+    if (!doc.folder || !parents?.includes(doc.folder)) return error(400, "invalid_file");
+    await db.prepare(`UPDATE ${table} SET drive_file_id = ? WHERE id = ?`).bind(fileId, target.id).run();
+    return json({ ok: true });
   }
 
   const pid = target.projectId;

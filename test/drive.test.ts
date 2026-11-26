@@ -45,6 +45,19 @@ const folderOf = async (env: TestEnv, table: "clients" | "projects", id: string)
 const driveSettings = async (env: TestEnv) =>
   JSON.parse((await env.DB.prepare("SELECT value FROM settings WHERE key = 'drive'").first<{ value: string }>())!.value) as { rootId: string; clientsId: string };
 
+/** Cuenta de cobro por la promesa del anticipo. */
+async function issueAnticipo(env: TestEnv, pid: string, ctx?: ExecutionContext) {
+  const plans = ((await (await handleProjectPayments(jsonRequest("GET", `${B}/projects/${pid}/payments`), env, owner, ["projects", pid, "payments"])).json()) as PaymentSummary).plans;
+  const lines = [{ source: "plan", planId: plans[0].id, title: "Anticipo", detail: "", quantity: 1, unitPrice: 1 }];
+  return handleProjects(jsonRequest("POST", `${B}/projects/${pid}/collections`, { lines }), env, owner, ["projects", pid, "collections"], ctx);
+}
+
+/** Registra el pago del anticipo y emite el recibo. */
+async function issueReceipt(env: TestEnv, pid: string, ctx?: ExecutionContext) {
+  await handleProjectPayments(jsonRequest("POST", `${B}/projects/${pid}/payments`, { amount: 385000, paidOn: "2026-11-25", method: "breb" }), env, owner, ["projects", pid, "payments"]);
+  return handleProjects(jsonRequest("POST", `${B}/projects/${pid}/invoices`, {}), env, owner, ["projects", pid, "invoices"], ctx);
+}
+
 async function manualProject(env: TestEnv, clientName: string, title: string, ctx?: ExecutionContext) {
   const client = await newClient(env, clientName);
   const r = await handleProjects(jsonRequest("POST", `${B}/projects`, { clientId: client.id, service: "marca", title }), env, owner, ["projects"], ctx);
@@ -115,10 +128,36 @@ describe("Drive folders", () => {
     expect(g.drive.files.get(again)!.parents).toEqual([newClientFolder]);
   });
 
-  it("does not touch Drive when the project is created without a context or without Drive", async () => {
+  it("two uploads at once on a fresh project end up in the same folder", async () => {
+    const { env, g } = await setup();
+    const { client, projectId } = await manualProject(env, "Jen Essence", "Kit de marca");
+    const [a, b] = await Promise.all([ensureProjectFolder(env, projectId), ensureProjectFolder(env, projectId)]);
+    expect(a).toBe(b);
+    expect(await folderOf(env, "projects", projectId)).toBe(a);
+    const clientFolder = (await folderOf(env, "clients", client.id))!;
+    const { rootId, clientsId } = await driveSettings(env);
+    expect(g.drive.files.get(a)).toMatchObject({ parents: [clientFolder], trashed: false });
+    expect(g.drive.files.get(clientFolder)).toMatchObject({ parents: [clientsId], trashed: false });
+    expect(g.drive.files.get(clientsId)).toMatchObject({ parents: [rootId], trashed: false });
+    // Lo que creó la que perdió quedó en la papelera: una sola carpeta viva por nivel.
+    const live = [...g.drive.files.values()].filter((f) => !f.trashed && f.mimeType === "application/vnd.google-apps.folder");
+    expect(live.map((f) => f.id).sort()).toEqual([rootId, clientsId, clientFolder, a].sort());
+  });
+
+  it("does not touch Drive without a context, or without the Drive scope", async () => {
     const { env, g } = await setup();
     await manualProject(env, "Jen Essence", "Kit de marca");
     expect(folderCreates(g.calls)).toHaveLength(0);
+
+    const { env: calendarOnly, g: g2 } = await setup((_m, url) =>
+      url.startsWith("https://oauth2.googleapis.com/token") ? [200, { access_token: "at-1", expires_in: 3599, refresh_token: "rt", scope: "https://www.googleapis.com/auth/calendar.events" }] : undefined,
+    );
+    const { ctx, settle } = ctxStub();
+    const waits = vi.spyOn(ctx, "waitUntil");
+    await manualProject(calendarOnly, "Jen Essence", "Kit de marca", ctx);
+    await settle();
+    expect(waits).not.toHaveBeenCalled();
+    expect(g2.calls.some((c) => c.url.includes("/drive/v3/"))).toBe(false);
   });
 
   it("renames the folders and voided documents in Drive, best effort", async () => {
@@ -269,6 +308,13 @@ describe("Drive uploads", () => {
     const clientFolder = (await folderOf(env, "clients", client.id))!;
     expect(g.calls.filter((c) => c.url.startsWith(UPLOAD))[0].body).toEqual({ name: pdf.name, parents: [clientFolder] });
 
+    // Un archivo fuera de la carpeta esperada (o inexistente) no se guarda en el documento.
+    const elsewhere = g.drive.add(pdf.name, "otra-carpeta");
+    expect(await errorOf(await drive(env, "POST", "complete", { target: { type: "quote", id: quote.id }, fileId: elsewhere, ...pdf }))).toBe("invalid_file");
+    expect(await errorOf(await drive(env, "POST", "complete", { target: { type: "quote", id: quote.id }, fileId: "noexiste", ...pdf }))).toBe("invalid_file");
+    expect(await errorOf(await drive(env, "POST", "complete", { target: { type: "collection", id: "nope" }, fileId: elsewhere, ...pdf }))).toBe("invalid_target");
+    expect((await env.DB.prepare("SELECT drive_file_id AS f FROM quotes WHERE id = ?").bind(quote.id).first<{ f: string | null }>())!.f).toBeNull();
+
     const fileId = g.drive.add(pdf.name, clientFolder);
     expect(await (await drive(env, "POST", "complete", { target: { type: "quote", id: quote.id }, fileId, ...pdf })).json()).toEqual({ ok: true });
     expect((await env.DB.prepare("SELECT drive_file_id AS f FROM quotes WHERE id = ?").bind(quote.id).first<{ f: string }>())!.f).toBe(fileId);
@@ -290,7 +336,7 @@ describe("Drive uploads", () => {
     expect(await errorOf(await drive(env, "POST", "uploads", { target: { type: "quote", id: quote.id }, ...pdf, mimeType: "application/zip" }))).toBe("invalid_file");
   });
 
-  it("returns 409 drive_not_connected without the Drive scope, and issuing a collection still works", async () => {
+  it("returns 409 drive_not_connected without the Drive scope, and issuing a collection or a receipt still works", async () => {
     const { env, g } = await setup((_m, url) =>
       url.startsWith("https://oauth2.googleapis.com/token") ? [200, { access_token: "at-1", expires_in: 3599, refresh_token: "rt", scope: "https://www.googleapis.com/auth/calendar.events" }] : undefined,
     );
@@ -304,21 +350,20 @@ describe("Drive uploads", () => {
     const relay = await handleDrive(new Request(`${B}/drive/relay?url=${encodeURIComponent(`${UPLOAD}?uploadType=resumable&upload_id=x`)}`, { method: "PUT", body: "x" }), env, owner, ["drive", "relay"]);
     expect(await errorOf(relay)).toBe("drive_not_connected");
 
-    const plans = ((await (await handleProjectPayments(jsonRequest("GET", `${B}/projects/${projectId}/payments`), env, owner, ["projects", projectId, "payments"])).json()) as PaymentSummary).plans;
-    const issued = await handleProjects(
-      jsonRequest("POST", `${B}/projects/${projectId}/collections`, { lines: [{ source: "plan", planId: plans[0].id, title: "Anticipo", detail: "", quantity: 1, unitPrice: 1 }] }),
-      env,
-      owner,
-      ["projects", projectId, "collections"],
-      ctx,
-    );
+    const issued = await issueAnticipo(env, projectId, ctx);
     expect(issued.status).toBe(201);
+    expect((await issueReceipt(env, projectId, ctx)).status).toBe(201);
     await settle();
     expect(g.calls.some((c) => c.url.includes("/drive/v3/"))).toBe(false);
 
     // Sin conexión alguna, igual.
     const bare = await makeEnv(googleEnv);
     expect(await errorOf(await drive(bare, "POST", "uploads", { target, name: "a.zip", mimeType: "application/zip", size: 5 }))).toBe("drive_not_connected");
+    const { projectId: bareProject } = await approvedProject(bare);
+    const b = ctxStub();
+    expect((await issueAnticipo(bare, bareProject, b.ctx)).status).toBe(201);
+    expect((await issueReceipt(bare, bareProject, b.ctx)).status).toBe(201);
+    await b.settle();
   });
 
   it("collaborator gets 403 on Drive routes", async () => {
