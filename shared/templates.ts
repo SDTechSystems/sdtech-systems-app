@@ -1,4 +1,4 @@
-export type TemplateKey = "quote" | "payment" | "progress" | "delivery" | "meeting" | "subscription";
+export type TemplateKey = "quote" | "payment" | "progress" | "delivery" | "meeting" | "subscription" | "collection" | "receipt";
 
 /** Mensajes de WhatsApp por defecto (diseño § 6.11). Juan los edita en Ajustes. */
 export const DEFAULT_TEMPLATES: Record<TemplateKey, string> = {
@@ -9,6 +9,8 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, string> = {
   delivery: "Hola {nombre}, ¡{proyecto} está listo! Ya puedes verlo en tu página: {link}",
   meeting: "Hola {nombre}, te recuerdo nuestra reunión el {fecha} a las {hora}. Enlace: {meet}",
   subscription: "Hola {nombre}, te recuerdo el pago de {servicio} por {monto}, que vence el {fecha}. Llave Bre-B {llave} ({banco}).",
+  collection: "Hola {nombre}, te comparto la cuenta de cobro {numero} por {monto}. También la puedes ver en tu página: {link}",
+  receipt: "Hola {nombre}, te comparto el recibo de pago {numero} por {monto}. ¡Gracias por tu pago! También lo puedes ver en tu página: {link}",
 };
 
 /** Variables que cada plantilla puede usar (se muestran en Ajustes). */
@@ -19,6 +21,8 @@ export const TEMPLATE_VARS: Record<TemplateKey, string[]> = {
   delivery: ["nombre", "proyecto", "link"],
   meeting: ["nombre", "fecha", "hora", "meet"],
   subscription: ["nombre", "servicio", "monto", "fecha", "llave", "banco"],
+  collection: ["nombre", "numero", "monto", "fecha", "link"],
+  receipt: ["nombre", "numero", "monto", "link"],
 };
 
 /** Reemplaza {clave}. Valores vacíos quedan vacíos; claves desconocidas quedan como están. */

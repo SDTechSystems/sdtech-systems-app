@@ -56,4 +56,44 @@ describe("nextNumber", () => {
     expect(new Set([a, b]).size).toBe(2);
     expect(await nextNumber(env.DB, "invoice")).toBe(1);
   });
+
+  it("defaults include NIT, tax note and the five payment methods", async () => {
+    const s = await getSettings((await makeEnv()).DB);
+    expect(s.company).toMatchObject({ nit: "", taxNote: "No responsable de IVA" });
+    expect(s.payment.methods.map((m) => [m.id, m.showOnDocs, m.active])).toEqual([
+      ["breb", true, true],
+      ["nequi", true, true],
+      ["bancolombia", false, true],
+      ["efectivo", false, true],
+      ["tarjeta", true, true],
+    ]);
+    expect(s.payment.methods.find((m) => m.id === "tarjeta")!.detail).toBe("Datáfono, Bold o Nequi Negocios");
+  });
+
+  it("replaces the method list when one is sent and keeps it", async () => {
+    const env = await makeEnv();
+    const methods = [{ id: "zelle", name: "Zelle", detail: "pagos@x.com", showOnDocs: true, active: true }];
+    const r = await handleSettings(jsonRequest("PATCH", U, { payment: { methods } }), env, owner, ["settings"]);
+    expect(r.status).toBe(200);
+    expect((await getSettings(env.DB)).payment.methods).toEqual(methods);
+  });
+
+  it("rejects methods with duplicate ids, empty names or bad ids", async () => {
+    const ok = { id: "a", name: "A", detail: "", showOnDocs: true, active: true };
+    const bad: unknown[][] = [
+      [ok, { ...ok }],
+      [{ ...ok, name: "  " }],
+      [{ ...ok, id: "Bad Id" }],
+      [{ ...ok, id: "" }],
+      [],
+      [{ ...ok, active: "yes" }],
+      [{ ...ok, detail: 5 }],
+      Array.from({ length: 13 }, (_, i) => ({ ...ok, id: `m${i}` })),
+    ];
+    for (const methods of bad) {
+      const r = await handleSettings(jsonRequest("PATCH", U, { payment: { methods } }), await makeEnv(), owner, ["settings"]);
+      expect(r.status).toBe(400);
+      expect(await r.json()).toEqual({ error: "invalid_settings" });
+    }
+  });
 });

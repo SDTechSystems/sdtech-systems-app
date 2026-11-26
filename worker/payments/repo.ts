@@ -1,8 +1,9 @@
 import { todayBogota } from "../../shared/dates";
 import { approvedChangesTotal } from "../changes/repo";
-import type { Currency, Payment, PaymentMethod, PaymentPlan, PaymentSummary, PlanStatus } from "../../shared/types";
+import type { Currency, Payment, PaymentMethod, PaymentPlan, PaymentSummary, PlanStatus, Settings } from "../../shared/types";
 
-export const PAYMENT_METHODS: PaymentMethod[] = ["nequi", "bancolombia", "efectivo", "breb"];
+/** Ids de los medios de pago activos en Ajustes. */
+export const activeMethodIds = (settings: Settings): string[] => settings.payment.methods.filter((m) => m.active).map((m) => m.id);
 
 export const planStatus = (p: { paid_at: string | null; due_date: string }, today: string): PlanStatus =>
   p.paid_at ? "paid" : p.due_date < today ? "overdue" : "pending";

@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { createTestDb } from "./d1";
+import { MIGRATIONS } from "../worker/db/migrations";
+import { ensureSchema, resetSchemaFlag } from "../worker/db/migrate";
+import { handleSettings } from "../worker/api/settings";
 import { handlePaymentPlans, handlePayments, handleProjectPayments } from "../worker/api/payments";
 import { addDays, todayBogota } from "../shared/dates";
 import type { PaymentSummary } from "../shared/types";
 import { jsonRequest, makeEnv } from "./helpers";
+import { getSettings } from "../worker/settings";
+import { loadPayments } from "../worker/payments/repo";
 import { approvedProject, B, owner, socio, type TestEnv } from "./fixtures";
 
 const summary = async (r: Response) => (await r.json()) as PaymentSummary;
@@ -82,5 +88,37 @@ describe("payments", () => {
     const { projectId } = await approvedProject(env);
     expect((await handleProjectPayments(jsonRequest("GET", `${B}/projects/${projectId}/payments`), env, socio, ["projects", projectId, "payments"])).status).toBe(403);
     expect((await pay(env, projectId, { amount: 1 }, socio)).status).toBe(403);
+  });
+
+  it("accepts any active configured method and rejects inactive or unknown ones", async () => {
+    const env = await makeEnv();
+    const { projectId } = await approvedProject(env);
+    const settings = await getSettings(env.DB);
+    const methods = settings.payment.methods.map((m) => (m.id === "bancolombia" ? { ...m, active: false } : m));
+    const put = await handleSettings(jsonRequest("PATCH", `${B}/settings`, { payment: { methods } }), env, owner, ["settings"]);
+    expect(put.status).toBe(200);
+    for (const [method, status] of [["bancolombia", 400], ["tarjeta", 201], ["zelle", 400]] as const) {
+      const r = await pay(env, projectId, { amount: 1000, method });
+      expect(r.status).toBe(status);
+      if (status === 400) expect(await r.json()).toEqual({ error: "invalid_method" });
+    }
+  });
+
+  it("keeps old payments readable after the payments table rebuild", async () => {
+    const db = createTestDb();
+    await db.prepare("CREATE TABLE schema_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)").run();
+    for (const m of MIGRATIONS.slice(0, -1)) {
+      await db.batch([
+        ...m.statements.map((st) => db.prepare(st)),
+        db.prepare("INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)").bind(m.id, "2026-01-01"),
+      ]);
+    }
+    await db.prepare("INSERT INTO payments (id, project_id, plan_id, amount, paid_on, method, note, created_at) VALUES ('p1', 'proj', NULL, 5000, '2026-11-01', 'breb', NULL, '2026-11-01')").run();
+    resetSchemaFlag();
+    await ensureSchema(db);
+    resetSchemaFlag();
+    const s = await loadPayments(db, "proj");
+    expect(s.payments).toMatchObject([{ id: "p1", amount: 5000, method: "breb" }]);
+    await db.prepare("INSERT INTO payments (id, project_id, amount, paid_on, method, created_at) VALUES ('p2', 'proj', 1, '2026-11-02', 'tarjeta', 'x')").run();
   });
 });

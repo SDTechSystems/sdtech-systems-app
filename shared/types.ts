@@ -45,9 +45,18 @@ export interface ActivityEntry {
   detail: unknown;
 }
 
+/** Medio de pago configurable en Ajustes. `id` es lo que se guarda en cada pago. */
+export interface PaymentMethodOption {
+  id: string;
+  name: string;
+  detail: string;
+  showOnDocs: boolean;
+  active: boolean;
+}
+
 export interface Settings {
-  company: { name: string; phone: string; email: string; website: string };
-  payment: { brebKey: string; bank: string; usdText: string };
+  company: { name: string; phone: string; email: string; website: string; nit: string; taxNote: string };
+  payment: { brebKey: string; bank: string; usdText: string; methods: PaymentMethodOption[] };
   quotes: { validityDays: number; advancePercent: number; conditions: string };
   phaseTemplates: Record<Service, string[]>;
   templates: Record<TemplateKey, string>;
@@ -127,7 +136,7 @@ export interface Project {
   createdAt: string;
 }
 
-export type PaymentMethod = "nequi" | "bancolombia" | "efectivo" | "breb";
+export type PaymentMethod = string;
 export type PlanStatus = "pending" | "overdue" | "paid";
 
 export interface PaymentPlan {

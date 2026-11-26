@@ -3,7 +3,7 @@ import { fillTemplate, DEFAULT_TEMPLATES } from "../shared/templates";
 import { paymentVars, progressVars } from "../src/lib/whatsapp";
 import type { PaymentPlan, Project } from "../shared/types";
 
-const settings = { payment: { brebKey: "3058147293", bank: "Davibank", usdText: "" } };
+const settings = { payment: { brebKey: "3058147293", bank: "Davibank", usdText: "", methods: [] } };
 const url = "https://clientes.sdtechsystems.dev/c/abc";
 
 it("fills the payment reminder", () => {

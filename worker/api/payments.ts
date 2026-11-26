@@ -3,7 +3,8 @@ import type { PaymentMethod } from "../../shared/types";
 import { logActivity } from "../activity";
 import { requireRole, type Handler } from "../auth/session";
 import { error, json, now, readJson } from "../http";
-import { loadPayments, PAYMENT_METHODS, syncPlanPaid } from "../payments/repo";
+import { activeMethodIds, loadPayments, syncPlanPaid } from "../payments/repo";
+import { getSettings } from "../settings";
 
 const validAmount = (v: unknown): v is number => Number.isInteger(v) && (v as number) > 0;
 
@@ -38,7 +39,7 @@ export const handleProjectPayments: Handler = async (request, env, session, path
   if (body instanceof Response) return body;
   if (!validAmount(body.amount)) return error(400, "invalid_amount");
   if (!isDate(body.paidOn)) return error(400, "invalid_date");
-  if (!PAYMENT_METHODS.includes(body.method as PaymentMethod)) return error(400, "invalid_method");
+  if (typeof body.method !== "string" || !activeMethodIds(await getSettings(db)).includes(body.method)) return error(400, "invalid_method");
   const planId = body.planId || null;
   if (planId) {
     const plan = await db.prepare("SELECT id FROM payment_plans WHERE id = ? AND project_id = ?").bind(planId, projectId).first();

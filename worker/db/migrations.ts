@@ -81,4 +81,15 @@ export const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS idx_invoices_client ON invoices (client_id)`,
     ],
   },
+  {
+    id: "0007_billing_drive",
+    statements: [
+      `CREATE TABLE payments_new (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, plan_id TEXT, amount INTEGER NOT NULL CHECK(amount > 0), paid_on TEXT NOT NULL, method TEXT NOT NULL, note TEXT, created_at TEXT NOT NULL, collection_id TEXT)`,
+      `INSERT INTO payments_new SELECT id, project_id, plan_id, amount, paid_on, method, note, created_at, NULL FROM payments`,
+      `DROP TABLE payments`,
+      `ALTER TABLE payments_new RENAME TO payments`,
+      `CREATE INDEX IF NOT EXISTS idx_payments_project ON payments (project_id, paid_on)`,
+      `CREATE INDEX IF NOT EXISTS idx_payments_collection ON payments (collection_id)`,
+    ],
+  },
 ];

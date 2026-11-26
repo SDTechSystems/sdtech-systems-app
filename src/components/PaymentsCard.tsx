@@ -12,13 +12,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { methodLabel } from "../../shared/payment-methods";
 import { apiGet, apiSend } from "@/lib/api";
 import { errorMessage, formatDate, formatDateTime } from "@/lib/labels";
 import { getPortalUrl } from "@/lib/quote-actions";
 import { useSettingsQuery } from "@/lib/useSettings";
 import { logReminder, openWhatsApp, paymentVars } from "@/lib/whatsapp";
 
-const METHOD_LABEL: Record<PaymentMethod, string> = { breb: "Bre-B", nequi: "Nequi", bancolombia: "Bancolombia", efectivo: "Efectivo" };
 const STATUS_STYLE = { paid: "text-emerald-400", overdue: "text-rose-400 font-semibold", pending: "text-muted-foreground" } as const;
 
 type Dialog = { type: "plan" } | { type: "payment"; plan?: PaymentPlan } | null;
@@ -28,6 +28,7 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
   const key = ["payments", projectId];
   const { data } = useQuery({ queryKey: key, queryFn: () => apiGet<PaymentSummary>(`/api/admin/projects/${projectId}/payments`) });
   const settings = useSettingsQuery();
+  const methods = settings.data?.settings.payment.methods ?? [];
   const [dialog, setDialog] = useState<Dialog>(null);
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
@@ -166,7 +167,7 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
               {data.payments.map((p) => (
                 <li key={p.id} className="flex items-center justify-between gap-2 py-2">
                   <span>
-                    {m(p.amount)} · {METHOD_LABEL[p.method]} · {formatDate(p.paidOn)}
+                    {m(p.amount)} · {methodLabel(methods, p.method)} · {formatDate(p.paidOn)}
                     {p.note && <span className="block text-xs text-muted-foreground">{p.note}</span>}
                   </span>
                   <Button size="icon" variant="ghost" aria-label="Borrar pago" onClick={() => confirm("¿Borrar este pago?") && call.mutate({ method: "DELETE", path: `/api/admin/payments/${p.id}` })}>
@@ -238,11 +239,13 @@ export function PaymentsCard({ projectId, client, lastReminders }: { projectId: 
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {(Object.keys(METHOD_LABEL) as PaymentMethod[]).map((k) => (
-                        <SelectItem key={k} value={k}>
-                          {METHOD_LABEL[k]}
-                        </SelectItem>
-                      ))}
+                      {methods
+                        .filter((x) => x.active)
+                        .map((x) => (
+                          <SelectItem key={x.id} value={x.id}>
+                            {x.name}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>

@@ -19,7 +19,6 @@ import { errorMessage, formatDate } from "@/lib/labels";
 import { useSettingsQuery } from "@/lib/useSettings";
 import { logReminder, openWhatsApp, subscriptionVars } from "@/lib/whatsapp";
 
-const METHODS: Record<PaymentMethod, string> = { breb: "Bre-B", nequi: "Nequi", bancolombia: "Bancolombia", efectivo: "Efectivo" };
 const STATUS = { active: ["cyan", "Activa"], paused: ["amber", "Pausada"], cancelled: ["slate", "Cancelada"] } as const;
 
 export function SubscriptionRow({ s, showClient }: { s: Subscription; showClient?: boolean }) {
@@ -101,11 +100,13 @@ export function SubscriptionRow({ s, showClient }: { s: Subscription; showClient
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(METHODS) as PaymentMethod[]).map((k) => (
-                    <SelectItem key={k} value={k}>
-                      {METHODS[k]}
-                    </SelectItem>
-                  ))}
+                  {(settings.data?.settings.payment.methods ?? [])
+                    .filter((x) => x.active)
+                    .map((x) => (
+                      <SelectItem key={x.id} value={x.id}>
+                        {x.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

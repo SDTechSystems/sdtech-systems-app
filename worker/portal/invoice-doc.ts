@@ -1,9 +1,9 @@
 import { dayOf, formatLongDate } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
 import type { Invoice, Settings } from "../../shared/types";
+import { methodLabel } from "../../shared/payment-methods";
 import { brandLogo, esc, page, qrSvg } from "./html";
 
-const METHOD: Record<string, string> = { breb: "Bre-B", nequi: "Nequi", bancolombia: "Bancolombia", efectivo: "Efectivo" };
 
 const CSS = `
 body{background:var(--ink)}
@@ -49,7 +49,7 @@ export function renderInvoiceDocument(inv: Invoice, settings: Settings, portalUr
 ${inv.lines.map((l) => `<tr><td><strong>${esc(l.title)}</strong>${l.detail ? `<div class="detail">${esc(l.detail)}</div>` : ""}</td><td class="n">${l.quantity}</td><td class="n">${m(l.unitPrice)}</td><td class="n">${m(l.total)}</td></tr>`).join("")}
 </tbody></table>
 <div class="totals"><div class="grand"><span>Total</span><span>${m(inv.total)}</span></div>
-${inv.payments.map((p) => `<div class="pay"><span>Pago ${esc(METHOD[p.method] ?? p.method)} · ${esc(formatLongDate(p.paidOn))}</span><span>− ${m(p.amount)}</span></div>`).join("")}
+${inv.payments.map((p) => `<div class="pay"><span>Pago ${esc(methodLabel(settings.payment.methods, p.method))} · ${esc(formatLongDate(p.paidOn))}</span><span>− ${m(p.amount)}</span></div>`).join("")}
 <div class="bal"><span>Saldo</span><span>${m(Math.max(inv.balance, 0))}</span></div></div>
 <div class="foot"><div class="qr">${qrSvg(portalUrl)}</div><p>Escanea para ver tu proyecto, tus servicios y tus pagos.<br><br>Código de verificación: <code>${esc(inv.verifyCode)}</code><br>${esc(verifyUrl)}</p></div>
 </article>`;

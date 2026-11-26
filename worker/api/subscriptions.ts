@@ -4,7 +4,8 @@ import type { Currency, Subscription, SubscriptionKind, SubscriptionStatus } fro
 import { logActivity } from "../activity";
 import { requireRole, type Handler } from "../auth/session";
 import { error, json, now, readJson } from "../http";
-import { PAYMENT_METHODS } from "../payments/repo";
+import { activeMethodIds } from "../payments/repo";
+import { getSettings } from "../settings";
 
 const KINDS: SubscriptionKind[] = ["hosting", "dominio", "mantenimiento", "soporte", "otro"];
 const STATUSES: SubscriptionStatus[] = ["active", "paused", "cancelled"];
@@ -134,7 +135,7 @@ export const handleSubscriptions: Handler = async (request, env, session, path) 
     if (body instanceof Response) return body;
     const paidOn = body.paidOn ?? todayBogota();
     if (!isDate(paidOn)) return error(400, "invalid_date");
-    if (!PAYMENT_METHODS.includes(body.method as (typeof PAYMENT_METHODS)[number])) return error(400, "invalid_method");
+    if (typeof body.method !== "string" || !activeMethodIds(await getSettings(db)).includes(body.method)) return error(400, "invalid_method");
     const next = addCycle(sub.nextDue, sub.cycle);
     await db.batch([
       db.prepare("UPDATE subscriptions SET next_due = ?, last_paid_on = ?, updated_at = ? WHERE id = ?").bind(next, paidOn, now(), id),

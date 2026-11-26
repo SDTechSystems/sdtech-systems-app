@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TEMPLATES, fillTemplate } from "../shared/templates";
+import { DEFAULT_TEMPLATES, fillTemplate, TEMPLATE_VARS } from "../shared/templates";
 import { getSettings } from "../worker/settings";
 import { handleSettings } from "../worker/api/settings";
 import { jsonRequest, makeEnv } from "./helpers";
@@ -17,10 +17,19 @@ describe("fillTemplate", () => {
   });
 });
 
+describe("collection and receipt templates", () => {
+  it("has collection and receipt templates with their variables", () => {
+    expect(TEMPLATE_VARS.collection).toEqual(expect.arrayContaining(["nombre", "numero", "monto", "fecha", "link"]));
+    expect(TEMPLATE_VARS.receipt).toEqual(expect.arrayContaining(["nombre", "numero", "monto", "link"]));
+    expect(DEFAULT_TEMPLATES.collection).toContain("{numero}");
+    expect(DEFAULT_TEMPLATES.receipt).toContain("¡Gracias por tu pago!");
+  });
+});
+
 describe("template settings", () => {
-  it("ships the six default templates and alert days", async () => {
+  it("ships the eight default templates and alert days", async () => {
     const s = await getSettings((await makeEnv()).DB);
-    expect(Object.keys(s.templates).sort()).toEqual(["delivery", "meeting", "payment", "progress", "quote", "subscription"]);
+    expect(Object.keys(s.templates).sort()).toEqual(["collection", "delivery", "meeting", "payment", "progress", "quote", "receipt", "subscription"]);
     expect(s.templates.payment).toBe(DEFAULT_TEMPLATES.payment);
     expect(s.alerts).toEqual({ staleDays: 7, dueSoonDays: 7, quoteExpiringDays: 5 });
   });

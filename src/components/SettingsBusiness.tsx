@@ -55,6 +55,8 @@ export function SettingsBusiness() {
           <Field id="cphone" label="Teléfono / WhatsApp" value={s.company.phone} onChange={(v) => set("company", { phone: v })} />
           <Field id="cemail" label="Correo" value={s.company.email} onChange={(v) => set("company", { email: v })} />
           <Field id="cweb" label="Web" value={s.company.website} onChange={(v) => set("company", { website: v })} />
+          <Field id="cnit" label="NIT / documento" value={s.company.nit} onChange={(v) => set("company", { nit: v })} />
+          <Field id="ctax" label="Leyenda fiscal" value={s.company.taxNote} onChange={(v) => set("company", { taxNote: v })} hint="Sale en las cuentas de cobro y los recibos." />
           <Field id="breb" label="Llave Bre-B" value={s.payment.brebKey} onChange={(v) => set("payment", { brebKey: v })} />
           <Field id="bank" label="Banco de la llave" value={s.payment.bank} onChange={(v) => set("payment", { bank: v })} />
           <div className="sm:col-span-2">

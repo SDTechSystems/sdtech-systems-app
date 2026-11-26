@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PhaseTemplatesCard, SettingsBusiness } from "@/components/SettingsBusiness";
+import { PaymentMethodsCard } from "@/components/PaymentMethodsCard";
 import { TemplatesCard } from "@/components/TemplatesCard";
 import { GoogleCalendarCard } from "@/components/GoogleCalendarCard";
 import { apiGet, apiSend } from "@/lib/api";
@@ -44,6 +45,7 @@ export default function Settings() {
 
       <GoogleCalendarCard />
       <SettingsBusiness />
+      <PaymentMethodsCard />
       <TemplatesCard />
       <PhaseTemplatesCard />
 

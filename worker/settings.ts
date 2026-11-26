@@ -1,6 +1,6 @@
 import { DEFAULT_PHASE_TEMPLATES } from "../shared/phases";
 import { DEFAULT_TEMPLATES, type TemplateKey } from "../shared/templates";
-import type { Service, Settings } from "../shared/types";
+import type { PaymentMethodOption, Service, Settings } from "../shared/types";
 
 /** Condiciones por defecto de la cotización (diseño § 7). */
 export const DEFAULT_CONDITIONS = [
@@ -12,9 +12,17 @@ export const DEFAULT_CONDITIONS = [
   "Los tiempos de entrega cuentan desde el pago del anticipo y la entrega de los contenidos necesarios por parte del cliente.",
 ].join("\n");
 
+export const DEFAULT_PAYMENT_METHODS: PaymentMethodOption[] = [
+  { id: "breb", name: "Bre-B", detail: "3058147293 · Davibank", showOnDocs: true, active: true },
+  { id: "nequi", name: "Nequi", detail: "", showOnDocs: true, active: true },
+  { id: "bancolombia", name: "Bancolombia", detail: "", showOnDocs: false, active: true },
+  { id: "efectivo", name: "Efectivo", detail: "", showOnDocs: false, active: true },
+  { id: "tarjeta", name: "Tarjeta", detail: "Datáfono, Bold o Nequi Negocios", showOnDocs: true, active: true },
+];
+
 export const DEFAULT_SETTINGS: Settings = {
-  company: { name: "SD Tech Systems", phone: "+57 305 814 7293", email: "contacto@sdtechsystems.dev", website: "sdtechsystems.dev" },
-  payment: { brebKey: "3058147293", bank: "Davibank", usdText: "" },
+  company: { name: "SD Tech Systems", phone: "+57 305 814 7293", email: "contacto@sdtechsystems.dev", website: "sdtechsystems.dev", nit: "", taxNote: "No responsable de IVA" },
+  payment: { brebKey: "3058147293", bank: "Davibank", usdText: "", methods: DEFAULT_PAYMENT_METHODS },
   quotes: { validityDays: 30, advancePercent: 50, conditions: DEFAULT_CONDITIONS },
   phaseTemplates: DEFAULT_PHASE_TEMPLATES,
   templates: DEFAULT_TEMPLATES,
@@ -50,9 +58,10 @@ export function validSettings(s: Settings): boolean {
     const t = s.phaseTemplates[svc];
     if (!Array.isArray(t) || t.length === 0 || t.some((n) => typeof n !== "string" || !n.trim())) return false;
   }
-  for (const section of [s.company, s.payment] as Record<string, unknown>[]) {
-    if (Object.values(section).some((v) => typeof v !== "string")) return false;
-  }
+  if (Object.values(s.company).some((v) => typeof v !== "string")) return false;
+  const { methods, ...payment } = s.payment;
+  if (Object.values(payment).some((v) => typeof v !== "string")) return false;
+  if (!validMethods(methods)) return false;
   for (const key of Object.keys(DEFAULT_TEMPLATES) as TemplateKey[]) {
     const t = s.templates[key];
     if (typeof t !== "string" || !t.trim()) return false;
@@ -60,6 +69,18 @@ export function validSettings(s: Settings): boolean {
   for (const v of Object.values(s.alerts)) if (!Number.isInteger(v) || v < 1 || v > 90) return false;
   if (!Number.isInteger(s.calendar.eventHour) || s.calendar.eventHour < 0 || s.calendar.eventHour > 22) return false;
   return typeof s.quotes.conditions === "string";
+}
+
+function validMethods(methods: unknown): methods is PaymentMethodOption[] {
+  if (!Array.isArray(methods) || methods.length < 1 || methods.length > 12) return false;
+  const ids = new Set<string>();
+  for (const m of methods as Partial<PaymentMethodOption>[]) {
+    if (!m || typeof m.id !== "string" || !/^[a-z0-9-]{1,24}$/.test(m.id) || ids.has(m.id)) return false;
+    ids.add(m.id);
+    if (typeof m.name !== "string" || !m.name.trim() || typeof m.detail !== "string") return false;
+    if (typeof m.showOnDocs !== "boolean" || typeof m.active !== "boolean") return false;
+  }
+  return true;
 }
 
 export function saveSettingsStatement(db: D1Database, s: Settings): D1PreparedStatement {

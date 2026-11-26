@@ -34,6 +34,13 @@ describe("subscriptions", () => {
     expect((await pending(env)).items.some((i) => i.kind === "subscription")).toBe(false);
   });
 
+  it("pays a subscription with 'tarjeta' and rejects unknown methods", async () => {
+    const env = await makeEnv();
+    const sub = await hosting(env);
+    expect((await call(env, "POST", ["subscriptions", sub.id, "pay"], { method: "tarjeta", paidOn: "2026-12-10" })).status).toBe(200);
+    expect((await call(env, "POST", ["subscriptions", sub.id, "pay"], { method: "zelle", paidOn: "2026-12-10" })).status).toBe(400);
+  });
+
   it("leaves paused subscriptions out of pending", async () => {
     const env = await makeEnv();
     const sub = await hosting(env);

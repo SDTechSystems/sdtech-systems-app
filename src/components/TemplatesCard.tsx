@@ -19,6 +19,8 @@ const NAMES: Record<TemplateKey, string> = {
   delivery: "Entrega lista",
   meeting: "Recordatorio de reunión",
   subscription: "Cobro de suscripción",
+  collection: "Enviar cuenta de cobro",
+  receipt: "Enviar recibo de pago",
 };
 
 export function TemplatesCard() {
