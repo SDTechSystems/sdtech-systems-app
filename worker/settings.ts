@@ -87,11 +87,11 @@ export function saveSettingsStatement(db: D1Database, s: Settings): D1PreparedSt
   return db.prepare("INSERT INTO settings (key, value) VALUES ('app', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(JSON.stringify(s));
 }
 
-/** Consecutivo atómico (COT-0001, FAC-0001…). */
-export async function nextNumber(db: D1Database, counter: "quote" | "invoice"): Promise<number> {
+/** Consecutivo atómico (COT-0001, FAC-0001, CC-0001…). */
+export async function nextNumber(db: D1Database, counter: "quote" | "invoice" | "collection"): Promise<number> {
   const row = await db.prepare("UPDATE counters SET value = value + 1 WHERE name = ? RETURNING value").bind(counter).first<{ value: number }>();
   if (!row) throw new Error(`counter ${counter} missing`);
   return row.value;
 }
 
-export const formatNumber = (prefix: "COT" | "FAC", n: number): string => `${prefix}-${String(n).padStart(4, "0")}`;
+export const formatNumber = (prefix: "COT" | "FAC" | "CC", n: number): string => `${prefix}-${String(n).padStart(4, "0")}`;

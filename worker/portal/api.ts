@@ -14,6 +14,8 @@ import { invalidLinkPage } from "./html";
 import { renderPortal } from "./page";
 import { renderQuoteDocument } from "./quote-doc";
 import { renderInvoiceDocument } from "./invoice-doc";
+import { renderCollectionDocument } from "./collection-doc";
+import { listCollections, loadCollection } from "../collections/repo";
 import { findInvoice, listInvoices } from "../invoices/repo";
 import { listSubscriptions } from "../api/subscriptions";
 import { findClientByToken, portalUrl } from "./tokens";
@@ -21,7 +23,7 @@ import { findClientByToken, portalUrl } from "./tokens";
 const PORTAL_QUOTES = ["sent", "approved", "rejected", "expired"] as const;
 export const PORTAL_ACTOR = "cliente (portal)";
 
-/** GET /c/:token, /c/:token/cotizacion/:number y /c/:token/factura/:number (recibo de pago) */
+/** GET /c/:token, /c/:token/cotizacion/:number, /c/:token/cobro/:number y /c/:token/factura/:number (recibo de pago) */
 export async function handlePortalPage(env: Env, token: string, sub: string[]): Promise<Response> {
   const client = await findClientByToken(env.DB, token);
   if (!client) return invalidLinkPage();
@@ -39,6 +41,11 @@ export async function handlePortalPage(env: Env, token: string, sub: string[]): 
     if (!inv || inv.clientId !== client.id) return invalidLinkPage();
     return renderInvoiceDocument(inv, settings, portalUrl(token));
   }
+  if (sub[0] === "cobro" && sub[1]) {
+    const c = await loadCollection(env.DB, "number", decodeURIComponent(sub[1]));
+    if (!c || c.clientId !== client.id) return invalidLinkPage();
+    return renderCollectionDocument(c, settings, portalUrl(token));
+  }
   if (sub.length) return invalidLinkPage();
 
   const projects = await listProjects(env.DB, { clientId: client.id, statuses: ["active", "paused", "delivered"] }, true);
@@ -47,7 +54,8 @@ export async function handlePortalPage(env: Env, token: string, sub: string[]): 
   const meetings = await listMeetings(env.DB, { clientId: client.id, fromDate: todayBogota() });
   const invoices = await listInvoices(env.DB, { clientId: client.id });
   const subscriptions = await listSubscriptions(env.DB, { clientId: client.id });
-  return renderPortal({ token, client, quotes, projects, payments, changes, meetings, invoices, subscriptions, settings });
+  const collections = (await listCollections(env.DB, { clientId: client.id })).filter((c) => c.status !== "voided");
+  return renderPortal({ token, client, quotes, projects, payments, changes, meetings, invoices, subscriptions, collections, settings });
 }
 
 /** POST /api/portal/:token/(quotes/:id/(approve|reject) | projects/:id/adjustments | changes/:id/(approve|reject)) */

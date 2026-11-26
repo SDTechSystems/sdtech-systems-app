@@ -1,7 +1,7 @@
 import { dayOf, formatLongDate, meetingDayLabel, meetingTimeLabel } from "../../shared/dates";
 import { formatMoney, signedMoney } from "../../shared/money";
 import { waLink } from "../../shared/phone";
-import type { ChangeRequest, Invoice, Meeting, PaymentSummary, Project, Quote, Settings, Subscription } from "../../shared/types";
+import type { ChangeRequest, Collection, Invoice, Meeting, PaymentSummary, Project, Quote, Settings, Subscription } from "../../shared/types";
 import { brandLogo, esc, page } from "./html";
 
 export interface PortalData {
@@ -14,6 +14,8 @@ export interface PortalData {
   meetings: Meeting[];
   invoices: Invoice[];
   subscriptions: Subscription[];
+  /** Sin las anuladas. */
+  collections: Collection[];
   settings: Settings;
 }
 
@@ -138,6 +140,30 @@ function paymentsBlock(pay: PaymentSummary, settings: Settings): string {
   return `<div class="pay"><h3>Pagos</h3><div class="sum"><div><span>Total</span><b>${m(pay.total)}</b></div><div><span>Pagado</span><b>${m(pay.paid)}</b></div><div><span>Saldo</span><b>${m(Math.max(pay.balance, 0))}</b></div></div>${plans ? `<ul class="plans">${plans}</ul>` : ""}${key}</div>`;
 }
 
+function collectionStatus(c: Collection): [string, string] {
+  if (c.status === "paid") return ["Pagada", "ok"];
+  if (c.status === "partial") return [`Abonada · falta ${formatMoney(c.total - c.paid, c.currency)}`, "pending"];
+  return ["Pendiente", "pending"];
+}
+
+const collectionUrl = (token: string, c: Collection) => `/c/${esc(token)}/cobro/${esc(c.number)}`;
+
+function collectionCard(c: Collection, token: string): string {
+  const [label, cls] = collectionStatus(c);
+  const due = c.dueDate ? ` · Fecha acordada de pago: ${esc(formatLongDate(c.dueDate))}` : "";
+  return `<div class="card"><div class="row"><div><strong>${esc(c.number)}</strong><div class="muted">${esc(c.projectTitle)}${due}</div></div><span class="badge ${cls}">${esc(label)}</span></div>
+<div class="row" style="margin-top:8px;align-items:center"><span class="amount">${esc(formatMoney(c.total, c.currency))}</span><a class="btn link" href="${collectionUrl(token, c)}">Ver cuenta de cobro</a></div></div>`;
+}
+
+/** Dentro del proyecto, solo las que faltan por pagar. */
+function openCollectionsBlock(collections: Collection[], token: string): string {
+  const open = collections.filter((c) => c.status === "pending" || c.status === "partial");
+  if (!open.length) return "";
+  return `<div class="pay"><h3>Cuentas de cobro</h3><ul class="plans">${open
+    .map((c) => `<li><span>${esc(c.number)} · ${esc(formatMoney(c.total, c.currency))} <span class="st">${esc(collectionStatus(c)[0])}</span></span><a href="${collectionUrl(token, c)}">Ver</a></li>`)
+    .join("")}</ul></div>`;
+}
+
 const ADJ_STATUS: Record<string, string> = { pending: "Recibido", resolved: "Hecho", converted: "Cotizado" };
 
 function changesBlock(p: Project, changes: ChangeRequest[], token: string, currency: PaymentSummary["currency"]): string {
@@ -163,9 +189,9 @@ ${approved.length ? `<div class="pay"><h3>Cambios aprobados</h3><ul class="plans
 <div class="actions"><button class="btn" value="adjustments">Enviar pedido</button></div><div class="msg" role="alert"></div></form></div>`;
 }
 
-function projectCard(p: Project, pay: PaymentSummary | undefined, settings: Settings, changes: ChangeRequest[] = [], token = ""): string {
+function projectCard(p: Project, pay: PaymentSummary | undefined, settings: Settings, changes: ChangeRequest[] = [], token = "", collections: Collection[] = []): string {
   return `<div class="card"><div class="row"><div><strong>${esc(p.title)}</strong><div class="muted">${p.dueDate ? `Entrega estimada: ${esc(formatLongDate(p.dueDate))}` : "Fecha de entrega por definir"}</div></div><span class="badge${p.status === "delivered" ? " ok" : p.status === "active" ? "" : " off"}">${PROJECT_STATUS[p.status]}</span></div>
-<div class="bar" role="progressbar" aria-valuenow="${p.progress}" aria-valuemin="0" aria-valuemax="100"><span style="width:${p.progress}%"></span></div><div class="muted">${p.progress}% completado</div>${phaseList(p)}${p.deliveryReleased && p.deliveryUrl ? `<div class="key"><span>Tu entrega está lista 🎉</span><a class="btn primary" href="${esc(p.deliveryUrl)}" target="_blank" rel="noopener">Descargar entrega</a></div>` : ""}${pay && pay.total > 0 ? paymentsBlock(pay, settings) : ""}${p.status === "cancelled" ? "" : changesBlock(p, changes, token, pay?.currency ?? "COP")}</div>`;
+<div class="bar" role="progressbar" aria-valuenow="${p.progress}" aria-valuemin="0" aria-valuemax="100"><span style="width:${p.progress}%"></span></div><div class="muted">${p.progress}% completado</div>${phaseList(p)}${p.deliveryReleased && p.deliveryUrl ? `<div class="key"><span>Tu entrega está lista 🎉</span><a class="btn primary" href="${esc(p.deliveryUrl)}" target="_blank" rel="noopener">Descargar entrega</a></div>` : ""}${pay && pay.total > 0 ? paymentsBlock(pay, settings) : ""}${openCollectionsBlock(collections, token)}${p.status === "cancelled" ? "" : changesBlock(p, changes, token, pay?.currency ?? "COP")}</div>`;
 }
 
 function quoteCard(q: Quote, base: string): string {
@@ -200,7 +226,8 @@ export function renderPortal(d: PortalData): Response {
     .join("");
   const sections = [
     d.meetings.length ? { title: "Próximas reuniones", html: meetingsHtml } : null,
-    d.projects.length ? { title: "Tus proyectos", html: d.projects.map((p) => projectCard(p, d.payments[p.id], d.settings, d.changes[p.id], d.token)).join("") } : null,
+    d.projects.length ? { title: "Tus proyectos", html: d.projects.map((p) => projectCard(p, d.payments[p.id], d.settings, d.changes[p.id], d.token, d.collections.filter((c) => c.projectId === p.id))).join("") } : null,
+    d.collections.length ? { title: "Cuentas de cobro", html: d.collections.map((c) => collectionCard(c, d.token)).join("") } : null,
     d.subscriptions.length
       ? {
           title: "Tus servicios",
@@ -226,7 +253,7 @@ export function renderPortal(d: PortalData): Response {
 <p class="eyebrow">Tu página de seguimiento</p>
 <h1>Hola, <em class="caret">${esc(first)}</em></h1><p class="lead">Aquí ves tus cotizaciones y el avance de tus proyectos con ${esc(company.name)}.</p>
 ${sections.map((s, i) => `<h2 data-n="${String(i + 1).padStart(2, "0")}">${s.title}</h2><div class="stagger">${s.html}</div>`).join("")}
-${!d.projects.length && !d.quotes.length && !d.meetings.length && !d.subscriptions.length ? `<div class="card"><p class="lead">Todavía no hay nada por aquí. Te avisaremos cuando tengamos tu cotización.</p></div>` : ""}
+${!d.projects.length && !d.quotes.length && !d.meetings.length && !d.subscriptions.length && !d.collections.length ? `<div class="card"><p class="lead">Todavía no hay nada por aquí. Te avisaremos cuando tengamos tu cotización.</p></div>` : ""}
 <footer><a class="wa" href="${esc(waLink(phoneDigits, `Hola, soy ${d.client.name}. `))}">¿Dudas? Escríbenos por WhatsApp</a><br><a href="https://${esc(company.website)}">${esc(company.website)}</a><br><span>Este enlace es personal; no lo compartas.</span></footer>
 </main>`;
   return page(`${company.name} · ${d.client.name}`, body, { css: CSS, script: SCRIPT });

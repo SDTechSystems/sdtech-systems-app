@@ -4,6 +4,7 @@ import { logActivity } from "../activity";
 import { requireRole, type Handler } from "../auth/session";
 import { error, json, now, readJson } from "../http";
 import { activeMethodIds, loadPayments, syncPlanPaid } from "../payments/repo";
+import { firstOpenPlan } from "../collections/repo";
 import { getSettings } from "../settings";
 
 const validAmount = (v: unknown): v is number => Number.isInteger(v) && (v as number) > 0;
@@ -35,12 +36,18 @@ export const handleProjectPayments: Handler = async (request, env, session, path
     return json(await loadPayments(db, projectId), 201);
   }
 
-  const body = await readJson<{ amount?: number; paidOn?: string; method?: PaymentMethod; planId?: string | null; note?: string }>(request);
+  const body = await readJson<{ amount?: number; paidOn?: string; method?: PaymentMethod; planId?: string | null; collectionId?: string | null; note?: string }>(request);
   if (body instanceof Response) return body;
   if (!validAmount(body.amount)) return error(400, "invalid_amount");
   if (!isDate(body.paidOn)) return error(400, "invalid_date");
   if (typeof body.method !== "string" || !activeMethodIds(await getSettings(db)).includes(body.method)) return error(400, "invalid_method");
-  const planId = body.planId || null;
+  const collectionId = body.collectionId || null;
+  if (collectionId) {
+    const c = await db.prepare("SELECT id FROM collections WHERE id = ? AND project_id = ? AND voided_at IS NULL").bind(collectionId, projectId).first();
+    if (!c) return error(400, "invalid_collection");
+  }
+  // Desde una cuenta de cobro, el pago abona a su primera promesa enlazada sin pagar.
+  const planId = body.planId || (collectionId ? await firstOpenPlan(db, collectionId) : null);
   if (planId) {
     const plan = await db.prepare("SELECT id FROM payment_plans WHERE id = ? AND project_id = ?").bind(planId, projectId).first();
     if (!plan) return error(400, "invalid_plan");
@@ -49,9 +56,9 @@ export const handleProjectPayments: Handler = async (request, env, session, path
   const t = now();
   await db.batch([
     db
-      .prepare("INSERT INTO payments (id, project_id, plan_id, amount, paid_on, method, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-      .bind(id, projectId, planId, body.amount, body.paidOn, body.method, body.note?.trim() || null, t),
-    logActivity(db, session.email, "project", projectId, "payment", { paymentId: id, planId, amount: body.amount, method: body.method }),
+      .prepare("INSERT INTO payments (id, project_id, plan_id, amount, paid_on, method, note, created_at, collection_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .bind(id, projectId, planId, body.amount, body.paidOn, body.method, body.note?.trim() || null, t, collectionId),
+    logActivity(db, session.email, "project", projectId, "payment", { paymentId: id, planId, collectionId, amount: body.amount, method: body.method }),
   ]);
   if (planId) await syncPlanPaid(db, planId, t);
   return json(await loadPayments(db, projectId), 201);

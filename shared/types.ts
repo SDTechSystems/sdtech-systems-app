@@ -282,3 +282,41 @@ export interface Invoice {
   payments: { paidOn: string; method: PaymentMethod; amount: number }[];
   client: { name: string; company: string | null; document: string | null; city: string | null; phone: string | null; email: string | null };
 }
+
+/** De dónde sale una línea de la cuenta de cobro. Solo `catalog` y `free` son trabajo nuevo. */
+export type CollectionLineSource = "balance" | "advance" | "plan" | "quote" | "change" | "catalog" | "free";
+
+export interface CollectionLineInput {
+  source: CollectionLineSource;
+  planId?: string;
+  title: string;
+  detail: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export type CollectionStatus = "pending" | "partial" | "paid" | "voided";
+
+/** Cuenta de cobro (CC-0001): copia inmutable de lo emitido más lo pagado hoy. */
+export interface Collection {
+  id: string;
+  number: string;
+  projectId: string;
+  clientId: string;
+  projectTitle: string;
+  issuedAt: string;
+  currency: Currency;
+  total: number;
+  dueDate: string | null;
+  planIds: string[];
+  paid: number;
+  status: CollectionStatus;
+  lines: InvoiceLine[];
+  includeDelivery: boolean;
+  deliveryUrl: string | null;
+  paymentUrl: string | null;
+  note: string | null;
+  client: Invoice["client"];
+  methods: { name: string; detail: string }[];
+  driveFileId: string | null;
+}

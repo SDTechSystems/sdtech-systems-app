@@ -90,6 +90,11 @@ export const MIGRATIONS: Migration[] = [
       `ALTER TABLE payments_new RENAME TO payments`,
       `CREATE INDEX IF NOT EXISTS idx_payments_project ON payments (project_id, paid_on)`,
       `CREATE INDEX IF NOT EXISTS idx_payments_collection ON payments (collection_id)`,
+      `INSERT OR IGNORE INTO counters (name, value) VALUES ('collection', 0), ('receipt', 0)`,
+      `CREATE TABLE IF NOT EXISTS collections (id TEXT PRIMARY KEY, number TEXT NOT NULL UNIQUE, project_id TEXT NOT NULL, client_id TEXT NOT NULL, issued_at TEXT NOT NULL, currency TEXT NOT NULL, total INTEGER NOT NULL CHECK(total > 0), due_date TEXT, own_plan_id TEXT, snapshot TEXT NOT NULL, drive_file_id TEXT, voided_at TEXT, created_at TEXT NOT NULL)`,
+      `CREATE TABLE IF NOT EXISTS collection_plans (collection_id TEXT NOT NULL, plan_id TEXT NOT NULL, PRIMARY KEY (collection_id, plan_id))`,
+      `CREATE INDEX IF NOT EXISTS idx_collections_project ON collections (project_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_collections_client ON collections (client_id)`,
     ],
   },
 ];

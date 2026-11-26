@@ -7,6 +7,7 @@ import { handleInvoices } from "./api/invoices";
 import { renderVerify } from "./portal/verify";
 import { handleSubscriptions } from "./api/subscriptions";
 import { handleChanges } from "./api/changes";
+import { handleCollections } from "./api/collections";
 import { handleMeetings } from "./api/meetings";
 import { handlePending } from "./api/pending";
 import { handleReminders } from "./api/reminders";
@@ -43,11 +44,12 @@ const ADMIN: Record<string, Handler> = {
   changes: handleChanges,
   subscriptions: handleSubscriptions,
   invoices: handleInvoices,
+  collections: handleCollections,
   export: handleExport,
 };
 
-/** Cambios del panel que mueven fechas del calendario. */
-const CALENDAR_SOURCES = new Set(["projects", "phases", "payment-plans", "payments", "quotes", "changes", "subscriptions"]);
+/** Cambios del panel que mueven fechas del calendario (anular una cuenta de cobro puede borrar su promesa). */
+const CALENDAR_SOURCES = new Set(["projects", "phases", "payment-plans", "payments", "quotes", "changes", "subscriptions", "collections"]);
 
 export default {
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {

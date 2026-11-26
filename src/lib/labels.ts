@@ -109,5 +109,8 @@ const ACTIVITY: Record<string, string> = {
   delivery_withdrawn: "Retiró la entrega",
   invoice_issued: "Emitió una factura",
   invoice_voided: "Anuló una factura",
+  collection_issued: "Emitió una cuenta de cobro",
+  collection_voided: "Anuló una cuenta de cobro",
+  collection_total: "Cambió el total con una cuenta de cobro",
 };
 export const activityLabel = (action: string): string => ACTIVITY[action] ?? action;
