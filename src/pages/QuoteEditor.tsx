@@ -4,7 +4,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatMoney, parseMoneyInput } from "../../shared/money";
-import type { CatalogItem, Client, Currency, Quote, Service, Settings } from "../../shared/types";
+import type { Client, Currency, Quote, Service, Settings } from "../../shared/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CatalogPicker } from "@/components/CatalogPicker";
