@@ -3,6 +3,7 @@ import { logActivity } from "../activity";
 import { requireRole, type Handler } from "../auth/session";
 import { listChanges } from "../changes/repo";
 import { priceLines } from "../collections/lines";
+import { renameLater, voidedName } from "../google/drive";
 import { collectionPaymentIds, loadCollection } from "../collections/repo";
 import { error, json, now, readJson } from "../http";
 import { coveredPaymentIds, findInvoice, listInvoices, newVerifyCode, type InvoiceSnapshot } from "../invoices/repo";
@@ -112,7 +113,7 @@ export const handleProjectInvoices: Handler = async (request, env, session, path
 };
 
 /** POST /api/admin/invoices/:id/void */
-export const handleInvoices: Handler = async (request, env, session, path) => {
+export const handleInvoices: Handler = async (request, env, session, path, ctx) => {
   const denied = requireRole(session, "owner");
   if (denied) return denied;
   const id = path[1] ? decodeURIComponent(path[1]) : "";
@@ -125,5 +126,9 @@ export const handleInvoices: Handler = async (request, env, session, path) => {
     env.DB.prepare("UPDATE invoices SET voided_at = COALESCE(voided_at, ?) WHERE id = ?").bind(now(), id),
     logActivity(env.DB, session.email, "project", inv.projectId, "invoice_voided", { number: inv.number }),
   ]);
+  if (!inv.voided) {
+    const file = await env.DB.prepare("SELECT drive_file_id AS f FROM invoices WHERE id = ?").bind(id).first<{ f: string | null }>();
+    await renameLater(env, ctx, file?.f ?? null, voidedName(inv.number, true));
+  }
   return json({ invoice: await findInvoice(env.DB, "id", id) });
 };

@@ -8,6 +8,7 @@ import { listMeetings } from "../api/meetings";
 import { todayBogota } from "../../shared/dates";
 import type { DocClient } from "../../shared/docs/model";
 import { approveQuote } from "../quotes/approve";
+import { afterProjectCreated } from "../google/drive";
 import { listQuotes, loadQuote } from "../quotes/repo";
 import { getSettings } from "../settings";
 import { invalidLinkPage } from "./html";
@@ -59,7 +60,7 @@ export async function handlePortalPage(env: Env, token: string, sub: string[]): 
 }
 
 /** POST /api/portal/:token/(quotes/:id/(approve|reject) | projects/:id/adjustments | changes/:id/(approve|reject)) */
-export async function handlePortalApi(request: Request, env: Env, path: string[]): Promise<Response> {
+export async function handlePortalApi(request: Request, env: Env, path: string[], ctx?: ExecutionContext): Promise<Response> {
   const [token, kind, quoteId, action] = path;
   if (request.method !== "POST" || !quoteId) return error(404, "not_found");
   const client = await findClientByToken(env.DB, token);
@@ -77,7 +78,9 @@ export async function handlePortalApi(request: Request, env: Env, path: string[]
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (name.length < 2 || name.length > 80) return error(400, "name_required");
     const result = await approveQuote(env.DB, quote.id, { by: "client", actor: PORTAL_ACTOR, name, comment });
-    return result instanceof Response ? result : json({ ok: true });
+    if (result instanceof Response) return result;
+    await afterProjectCreated(env, ctx, result.projectId);
+    return json({ ok: true });
   }
 
   if (quote.status !== "sent") return error(409, "not_rejectable");

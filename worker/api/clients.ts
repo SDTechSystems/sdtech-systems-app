@@ -5,6 +5,7 @@ import { logActivity } from "../activity";
 import type { Handler } from "../auth/session";
 import { error, json, now, readJson } from "../http";
 import { handlePortalLink } from "./portal-links";
+import { folderName, renameLater } from "../google/drive";
 
 interface ClientRow {
   id: string;
@@ -75,7 +76,7 @@ async function load(db: D1Database, id: string): Promise<Client | null> {
   return row ? toClient(row) : null;
 }
 
-export const handleClients: Handler = async (request, env, session, path) => {
+export const handleClients: Handler = async (request, env, session, path, ctx) => {
   if (path[2] === "portal-link") return handlePortalLink(request, env, session, path);
   const db = env.DB;
   const id = path[1] ? decodeURIComponent(path[1]) : null;
@@ -145,6 +146,10 @@ export const handleClients: Handler = async (request, env, session, path) => {
         .bind(next.name, next.phone, next.email, next.document, next.city, next.company, next.notes, searchTextOf(next), next.archived ? 1 : 0, next.updatedAt, id),
       logActivity(db, session.email, "client", id, "update", { fields: changed }),
     ]);
+    if (next.name !== current.name) {
+      const folder = await db.prepare("SELECT drive_folder_id AS f FROM clients WHERE id = ?").bind(id).first<{ f: string | null }>();
+      await renameLater(env, ctx, folder?.f ?? null, folderName(next.name));
+    }
     return json({ client: next });
   }
 

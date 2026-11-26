@@ -10,6 +10,8 @@ import { handleProjectPayments } from "./payments";
 import { handleProjectChanges } from "./changes";
 import { handleProjectInvoices } from "./invoices";
 import { handleProjectCollections } from "./collections";
+import { handleProjectFiles } from "./drive";
+import { afterProjectCreated, folderName, renameLater } from "../google/drive";
 
 const SERVICES: Service[] = ["web", "marca", "software", "general"];
 const STATUSES: ProjectStatus[] = ["active", "paused", "delivered", "cancelled"];
@@ -35,11 +37,12 @@ const activityOf = async (db: D1Database, type: string, id: string) =>
       .all<{ at: string; actor: string; action: string; detail: string | null }>()
   ).results.map((r) => ({ ...r, detail: r.detail ? JSON.parse(r.detail) : null }));
 
-export const handleProjects: Handler = async (request, env, session, path) => {
+export const handleProjects: Handler = async (request, env, session, path, ctx) => {
   if (path[1] && (path[2] === "payments" || path[2] === "payment-plans")) return handleProjectPayments(request, env, session, path);
   if (path[1] && path[2] === "changes") return handleProjectChanges(request, env, session, path);
   if (path[1] && path[2] === "invoices") return handleProjectInvoices(request, env, session, path);
   if (path[1] && path[2] === "collections") return handleProjectCollections(request, env, session, path);
+  if (path[1] && path[2] === "files") return handleProjectFiles(request, env, session, path);
   const db = env.DB;
   const money = session.role === "owner";
   const id = path[1] ? decodeURIComponent(path[1]) : null;
@@ -76,6 +79,7 @@ export const handleProjects: Handler = async (request, env, session, path) => {
       ),
       logActivity(db, session.email, "project", pid, "create", { title }),
     ]);
+    await afterProjectCreated(env, ctx, pid);
     return json({ project: await loadProject(db, pid, money) }, 201);
   }
 
@@ -112,6 +116,10 @@ export const handleProjects: Handler = async (request, env, session, path) => {
         .bind(next.title, next.description, next.status, next.dueDate, next.total, next.currency, next.deliveryUrl, next.deliveryUrl, now(), id),
       logActivity(db, session.email, "project", id, "update", { fields: Object.keys(body) }),
     ]);
+    if (next.title !== project.title) {
+      const folder = await db.prepare("SELECT drive_folder_id AS f FROM projects WHERE id = ?").bind(id).first<{ f: string | null }>();
+      await renameLater(env, ctx, folder?.f ?? null, folderName(next.title));
+    }
     return json({ project: await loadProject(db, id, money) });
   }
 

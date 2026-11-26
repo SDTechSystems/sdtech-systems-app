@@ -2,7 +2,8 @@ import type { Env } from "../env";
 import { now } from "../http";
 import { decryptToken, encryptToken } from "./crypto";
 
-export const GOOGLE_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+export const GOOGLE_SCOPES = ["https://www.googleapis.com/auth/calendar.events", DRIVE_SCOPE];
 export const GOOGLE_REDIRECT = "https://panel.sdtechsystems.dev/api/google/callback";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
@@ -11,6 +12,8 @@ interface Stored {
   refreshToken: string;
   connectedAt: string;
   status: "ok" | "reconnect";
+  /** Permisos que Google concedió, separados por espacio. Las conexiones de antes no lo tienen. */
+  scopes?: string;
 }
 
 let cache: { token: string; expiresAt: number } | null = null;
@@ -26,9 +29,10 @@ async function readStored(db: D1Database): Promise<Stored | null> {
 const writeStored = (db: D1Database, s: Stored) =>
   db.prepare("INSERT INTO settings (key, value) VALUES ('google', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(JSON.stringify(s)).run();
 
-export async function googleStatus(db: D1Database): Promise<{ status: GoogleStatusValue; connectedAt: string | null }> {
+export async function googleStatus(db: D1Database): Promise<{ status: GoogleStatusValue; connectedAt: string | null; drive: boolean }> {
   const s = await readStored(db);
-  return s ? { status: s.status, connectedAt: s.connectedAt } : { status: "disconnected", connectedAt: null };
+  if (!s) return { status: "disconnected", connectedAt: null, drive: false };
+  return { status: s.status, connectedAt: s.connectedAt, drive: (s.scopes ?? "").split(" ").includes(DRIVE_SCOPE) };
 }
 
 export function authUrl(env: Env, state: string): string {
@@ -36,7 +40,7 @@ export function authUrl(env: Env, state: string): string {
     client_id: env.GOOGLE_CLIENT_ID ?? "",
     redirect_uri: GOOGLE_REDIRECT,
     response_type: "code",
-    scope: GOOGLE_SCOPE,
+    scope: GOOGLE_SCOPES.join(" "),
     access_type: "offline",
     prompt: "consent",
     include_granted_scopes: "true",
@@ -59,9 +63,9 @@ export async function exchangeCode(env: Env, code: string): Promise<boolean> {
     }).toString(),
   });
   if (!res.ok) return false;
-  const data = (await res.json()) as { access_token?: string; expires_in?: number; refresh_token?: string };
+  const data = (await res.json()) as { access_token?: string; expires_in?: number; refresh_token?: string; scope?: string };
   if (!data.refresh_token || !env.TOKEN_ENC_KEY) return false;
-  await writeStored(env.DB, { refreshToken: await encryptToken(data.refresh_token, env.TOKEN_ENC_KEY), connectedAt: now(), status: "ok" });
+  await writeStored(env.DB, { refreshToken: await encryptToken(data.refresh_token, env.TOKEN_ENC_KEY), connectedAt: now(), status: "ok", scopes: data.scope ?? "" });
   if (data.access_token) cache = { token: data.access_token, expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000 };
   return true;
 }

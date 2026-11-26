@@ -5,6 +5,7 @@ import { logActivity } from "../activity";
 import { requireRole, type Handler } from "../auth/session";
 import { error, json, now, readJson } from "../http";
 import { approveQuote } from "../quotes/approve";
+import { afterProjectCreated } from "../google/drive";
 import { listQuotes, loadQuote } from "../quotes/repo";
 import { formatNumber, getSettings, nextNumber } from "../settings";
 
@@ -79,7 +80,7 @@ async function createQuote(db: D1Database, actor: string, input: Required<Pick<Q
 
 const validAdvance = (v: unknown) => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 100;
 
-export const handleQuotes: Handler = async (request, env, session, path) => {
+export const handleQuotes: Handler = async (request, env, session, path, ctx) => {
   const denied = requireRole(session, "owner");
   if (denied) return denied;
   const db = env.DB;
@@ -174,7 +175,9 @@ export const handleQuotes: Handler = async (request, env, session, path) => {
 
   if (action === "approve") {
     const result = await approveQuote(db, id, { by: "owner", actor: session.email, note: typeof body.note === "string" ? body.note.trim() || undefined : undefined });
-    return result instanceof Response ? result : json(result);
+    if (result instanceof Response) return result;
+    await afterProjectCreated(env, ctx, result.projectId);
+    return json(result);
   }
 
   if (action === "reject") {

@@ -8,6 +8,7 @@ import { renderVerify } from "./portal/verify";
 import { handleSubscriptions } from "./api/subscriptions";
 import { handleChanges } from "./api/changes";
 import { handleCollections } from "./api/collections";
+import { handleDrive } from "./api/drive";
 import { handleMeetings } from "./api/meetings";
 import { handlePending } from "./api/pending";
 import { handleReminders } from "./api/reminders";
@@ -44,6 +45,7 @@ const ADMIN: Record<string, Handler> = {
   subscriptions: handleSubscriptions,
   invoices: handleInvoices,
   collections: handleCollections,
+  drive: handleDrive,
   export: handleExport,
 };
 
@@ -72,7 +74,7 @@ export default {
       const path = url.pathname.slice("/api/admin/".length).split("/").filter(Boolean);
       const handler = ADMIN[path[0] ?? ""];
       if (!handler) return error(404, "not_found");
-      const response = await handler(request, env, session, path);
+      const response = await handler(request, env, session, path, ctx);
       if (request.method !== "GET" && response.ok && CALENDAR_SOURCES.has(path[0])) ctx.waitUntil?.(syncCalendar(env).catch(() => undefined));
       return response;
     }
@@ -106,7 +108,7 @@ async function handlePortalHost(request: Request, env: Env, url: URL, ctx: Execu
   const parts = p.split("/").filter(Boolean);
   if (parts[0] === VERIFY_PATH) return request.method === "GET" ? renderVerify(env.DB, (parts[1] ?? "").toUpperCase()) : error(405, "method_not_allowed");
   if (parts[0] === "api") {
-    const response = await handlePortalApi(request, env, parts.slice(2));
+    const response = await handlePortalApi(request, env, parts.slice(2), ctx);
     if (response.ok) ctx.waitUntil?.(syncCalendar(env).catch(() => undefined));
     return response;
   }

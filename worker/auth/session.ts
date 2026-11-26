@@ -37,4 +37,5 @@ export function requireRole(session: Session, role: Role): Response | null {
   return RANK[session.role] >= RANK[role] ? null : error(403, "forbidden");
 }
 
-export type Handler = (request: Request, env: Env, session: Session, path: string[]) => Promise<Response>;
+/** `ctx` lo pasa el router (para trabajo después de responder, como las carpetas de Drive); en pruebas puede faltar. */
+export type Handler = (request: Request, env: Env, session: Session, path: string[], ctx?: ExecutionContext) => Promise<Response>;

@@ -150,7 +150,8 @@ describe("disconnect and portal approvals", () => {
       ctx,
     );
     expect(r.status).toBe(200);
-    expect(waits).toHaveLength(1);
+    // La carpeta de Drive del proyecto nuevo y la sincronización del calendario.
+    expect(waits).toHaveLength(2);
     await Promise.all(waits);
   });
 });

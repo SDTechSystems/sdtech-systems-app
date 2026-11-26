@@ -3,6 +3,7 @@ import type { CollectionLineInput, CollectionLineSource, Currency, InvoiceLine }
 import { logActivity } from "../activity";
 import { requireRole, type Handler } from "../auth/session";
 import { priceLines } from "../collections/lines";
+import { renameLater, voidedName } from "../google/drive";
 import { listCollections, loadCollection, openCollectionOfPlan, type CollectionSnapshot } from "../collections/repo";
 import { error, json, now, readJson } from "../http";
 import { formatNumber, getSettings, nextNumber } from "../settings";
@@ -113,7 +114,7 @@ export const handleProjectCollections: Handler = async (request, env, session, p
 };
 
 /** GET /api/admin/collections/:id y POST /api/admin/collections/:id/void */
-export const handleCollections: Handler = async (request, env, session, path) => {
+export const handleCollections: Handler = async (request, env, session, path, ctx) => {
   const denied = requireRole(session, "owner");
   if (denied) return denied;
   const db = env.DB;
@@ -142,5 +143,6 @@ export const handleCollections: Handler = async (request, env, session, path) =>
       : []),
     logActivity(db, session.email, "project", c.projectId, "collection_voided", { number: c.number, promiseDeleted: unpaid }),
   ]);
+  await renameLater(env, ctx, c.driveFileId, voidedName(c.number));
   return json({ collection: await loadCollection(db, "id", id) });
 };

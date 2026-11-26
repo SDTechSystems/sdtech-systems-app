@@ -97,6 +97,11 @@ export const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS idx_collections_client ON collections (client_id)`,
       `ALTER TABLE invoices ADD COLUMN collection_id TEXT`,
       `ALTER TABLE invoices ADD COLUMN drive_file_id TEXT`,
+      `ALTER TABLE clients ADD COLUMN drive_folder_id TEXT`,
+      `ALTER TABLE projects ADD COLUMN drive_folder_id TEXT`,
+      `ALTER TABLE quotes ADD COLUMN drive_file_id TEXT`,
+      `CREATE TABLE IF NOT EXISTS project_files (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, drive_file_id TEXT NOT NULL, name TEXT NOT NULL, size INTEGER, created_at TEXT NOT NULL)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_project_files_file ON project_files (project_id, drive_file_id)`,
     ],
   },
 ];
