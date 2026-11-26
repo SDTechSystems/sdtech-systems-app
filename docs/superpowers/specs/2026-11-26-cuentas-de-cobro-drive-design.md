@@ -1,6 +1,6 @@
 # Cuentas de cobro, recibos de pago, catálogo en píldoras y Drive — Diseño
 
-Fecha: 2026-11-26 · Estado: **borrador para aprobación de Juan** · Amplía
+Fecha: 2026-11-26 · Estado: **revisado, para aprobación de Juan** · Amplía
 [`2026-11-25-sdtech-systems-app-design.md`](2026-11-25-sdtech-systems-app-design.md)
 (el «diseño base»).
 
@@ -133,7 +133,9 @@ tiene además «Cuenta de cobro», que abre el editor ya armado con esa promesa.
 
 **Editor** (hoja en celular, diálogo en computador):
 - **Atajos para armar las líneas**, cada uno agrega una línea editable:
-  - «Saldo pendiente» (total del proyecto − pagos), si el proyecto tiene total;
+  - «Saldo pendiente»: total del proyecto − pagos − lo ya cobrado en cuentas de
+    cobro abiertas (sin pagar ni anular), para no cobrar dos veces lo mismo; si el
+    proyecto tiene total y el resultado es mayor que 0;
   - «Anticipo N %» (el porcentaje del proyecto o el de Ajustes) del total;
   - cada **promesa de pago pendiente** («Anticipo», «Saldo», «Cuota 2»…);
   - «Ítems de la cotización» y «Cambios aprobados», si existen;
@@ -144,25 +146,39 @@ tiene además «Cuenta de cobro», que abre el editor ya armado con esa promesa.
   tiene link).
 - **Link de pago** (opcional, por ejemplo de Bold).
 - **Nota** (opcional, sale en el documento).
-- Si el proyecto **no tiene total**, aparece «Usar este valor como total del
-  proyecto», marcado por defecto. Una cuenta de cobro nunca cambia el total por su
-  cuenta.
+- **Total del proyecto** (una cuenta de cobro nunca lo cambia sin que Juan lo vea):
+  - si el proyecto **no tiene total**, aparece «Usar este valor como total del
+    proyecto», marcado por defecto;
+  - si el proyecto tiene total y la cuenta trae **líneas nuevas** (del catálogo o
+    libres, que no salen de saldo, anticipo, promesas, ítems de la cotización ni
+    cambios aprobados), aparece «Sumar $X al total del proyecto», marcado por
+    defecto. Así el saldo no queda negativo cuando el cliente paga. Lo sumado queda
+    en el historial y, en la factura/recibo, como línea propia; no pasa por la
+    aprobación de cambios de costo del portal, porque el cliente lo ve en la cuenta.
+- **Líneas que vienen de una promesa** muestran su valor sin poder editarlo aquí: el
+  valor y la fecha se cambian en la promesa (Pagos), para que cuenta y promesa nunca
+  digan cosas distintas.
 
 **Al emitir:**
 - Número consecutivo `CC-0001` y copia inmutable de lo emitido (líneas, cliente,
   medios de pago visibles, links), como las facturas actuales.
-- **Promesa de pago:** si se armó desde una promesa existente, queda enlazada a ella
-  (no se duplica). Si no, y hay fecha acordada, se crea una promesa con etiqueta
-  «CC-0003», el valor de la cuenta y esa fecha. Así entra a Pendientes y a Google
-  Calendar con sus avisos, que es lo que Juan quiere: acordarse de cobrar.
+- **Promesas de pago:** una cuenta puede armarse con una o varias promesas y queda
+  enlazada a todas (no se duplican). Si no trae ninguna y hay fecha acordada, se crea
+  una promesa con etiqueta «CC-0003», el valor de la cuenta y esa fecha. Así entra a
+  Pendientes y a Google Calendar con sus avisos, que es lo que Juan quiere: acordarse
+  de cobrar. Si trae promesas y además líneas sueltas con fecha acordada, se crea una
+  promesa solo por esas líneas.
 - Se arma el PDF, se guarda en la carpeta de Drive del proyecto (5.6) y se ofrece
   enviarlo (5.5).
 - Queda en el historial.
 
 **Estados:** *pendiente* → *pagada* (o *anulada*). Si hay abonos que no completan el
 valor, se muestra «abonada · falta $X».
+- **Qué cuenta como pagado:** los pagos registrados contra sus promesas enlazadas,
+  desde cualquier parte de la app (Pagos, Pendientes o la cuenta), más los pagos
+  registrados desde la cuenta misma. Un pago del proyecto sin enlace no cuenta.
 - **Registrar pago** desde la cuenta abre el registro de pago con el valor pendiente y
-  la promesa enlazada ya puestos. El pago queda enlazado a la cuenta.
+  la promesa enlazada ya puestos.
 - Cuando lo pagado cubre el valor, la cuenta pasa a *pagada* y la app ofrece
   **«Emitir recibo»** con las mismas líneas.
 - **Anular:** como la factura actual; la cuenta sigue existiendo, marcada como anulada.
@@ -195,6 +211,10 @@ No responsable de IVA                       [QR a tu página]
 - Redacción cordial (opción A que eligió Juan); nunca «DEBE A».
 - Valor en letras en español («pesos» o «dólares»).
 - Sin firma.
+- **Link de entrega:** si Juan activó el interruptor, sale en el PDF y en la página de
+  esa cuenta en el portal, aunque la entrega no esté liberada (es su decisión). La
+  sección «Tu entrega está lista» del proyecto en el portal sigue oculta hasta que
+  libere.
 - Encabezado y pie con «Página 1 de 2» en cada hoja; el encabezado de la tabla se
   repite; una fila nunca se parte entre páginas; los detalles largos ajustan línea.
 - Anulada: marca de agua «ANULADA».
@@ -216,8 +236,11 @@ dentro de su proyecto.
     `nothing_to_bill`.
 - **Contado:** Juan registra el pago y emite el recibo con los servicios adquiridos.
   Ya hoy son dos toques seguidos; no se fusionan.
-- El recibo sigue mostrando total, pagos recibidos y saldo, y el código de
-  verificación con QR. Lleva NIT y leyenda fiscal. Mismo PDF paginado, guardado en
+- El recibo muestra el total **de ese documento** y los pagos que lo cubren (los de
+  la cuenta de cobro de la que viene; en uno de contado o sin cuenta, los pagos que
+  Juan marque al emitirlo, por defecto los aún no cubiertos por otro recibo). Debajo,
+  en una línea aparte, «Saldo del proyecto: $X». Mantiene el código de verificación
+  con QR. Los recibos `FAC-` viejos se siguen mostrando como se emitieron. Lleva NIT y leyenda fiscal. Mismo PDF paginado, guardado en
   Drive y enviado como la cuenta de cobro.
 
 ### 5.5 PDF y envío
@@ -283,9 +306,9 @@ Link de entrega: drive.google.com/…   [Copiar] [Abrir]
 - Uno o varios archivos de cualquier tipo y tamaño (ZIP, videos). Van **directo del
   dispositivo a Drive** por partes, con barra de progreso y reanudación si se corta la
   conexión. El Worker solo abre la subida y nunca recibe el archivo.
-- **Permisos de lo subido:** «cualquiera con el link puede ver». Si el cliente tiene
-  correo, también se comparte con ese correo, **sin correo de aviso de Google**, para
-  no adelantar la entrega.
+- **Permisos de lo subido:** solo «cualquiera con el link puede ver». **No** se
+  comparte con el correo del cliente (decisión de Juan: más simple, y así el archivo
+  no aparece en su Drive antes de pagar).
 - **Link de entrega:** con un solo archivo, el link es el del archivo. Con dos o más,
   el link es el de la carpeta del proyecto, que se comparte de la misma forma (el
   cliente vería también sus propios PDF, que son suyos). Se guarda como el link de
@@ -317,7 +340,11 @@ Link de entrega: drive.google.com/…   [Copiar] [Abrir]
 - Cuentas de cobro y recibos comparten editor; el recibo de contado sigue siendo
   registrar pago + emitir recibo.
 - Con varios archivos de entrega, el link es el de la carpeta del proyecto.
-- Compartir con el correo del cliente sin aviso de Google.
+- Una cuenta puede enlazar varias promesas; los pagos contra ellas cuentan desde
+  cualquier parte; las líneas de promesa no se editan en la cuenta.
+- «Saldo pendiente» descuenta lo ya cobrado en cuentas abiertas.
+- El recibo muestra el total y los pagos de su documento, y aparte el saldo del
+  proyecto.
 - Las cotizaciones guardan su PDF en Drive al enviarlas o renovarlas.
 - Recibos nuevos `REC-`, los viejos conservan `FAC-`.
 - El portal no genera PDF; usa su página imprimible.
