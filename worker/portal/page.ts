@@ -151,7 +151,7 @@ const collectionUrl = (token: string, c: Collection) => `/c/${esc(token)}/cobro/
 function collectionCard(c: Collection, token: string): string {
   const [label, cls] = collectionStatus(c);
   const due = c.dueDate ? ` · Fecha acordada de pago: ${esc(formatLongDate(c.dueDate))}` : "";
-  return `<div class="card"><div class="row"><div><strong>${esc(c.number)}</strong><div class="muted">${esc(c.projectTitle)}${due}</div></div><span class="badge ${cls}">${esc(label)}</span></div>
+  return `<div class="card"><div class="row"><div><strong>${esc(c.number)}</strong><div class="muted">${esc(c.projectTitle)} · Emitida el ${esc(formatLongDate(dayOf(c.issuedAt)))}${due}</div></div><span class="badge ${cls}">${esc(label)}</span></div>
 <div class="row" style="margin-top:8px;align-items:center"><span class="amount">${esc(formatMoney(c.total, c.currency))}</span><a class="btn link" href="${collectionUrl(token, c)}">Ver cuenta de cobro</a></div></div>`;
 }
 

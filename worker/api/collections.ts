@@ -2,7 +2,7 @@ import { isDate } from "../../shared/dates";
 import type { CollectionLineInput, CollectionLineSource, Currency, InvoiceLine } from "../../shared/types";
 import { logActivity } from "../activity";
 import { requireRole, type Handler } from "../auth/session";
-import { listCollections, loadCollection, type CollectionSnapshot } from "../collections/repo";
+import { listCollections, loadCollection, openCollectionOfPlan, type CollectionSnapshot } from "../collections/repo";
 import { error, json, now, readJson } from "../http";
 import { formatNumber, getSettings, nextNumber } from "../settings";
 
@@ -73,6 +73,7 @@ export const handleProjectCollections: Handler = async (request, env, session, p
       const plan = typeof l.planId === "string" ? plans.get(l.planId) : undefined;
       const open = plan && !plan.paid_at ? plan.amount - plan.paid : 0;
       if (!plan || open <= 0 || planIds.includes(plan.id)) return error(400, "invalid_plan");
+      if (await openCollectionOfPlan(db, plan.id)) return error(400, "plan_already_billed");
       planIds.push(plan.id);
       lines.push({ title, detail, quantity: 1, unitPrice: open, total: open });
       continue;
@@ -83,7 +84,7 @@ export const handleProjectCollections: Handler = async (request, env, session, p
     if (NEW_WORK.includes(l.source)) newWork.push(line);
   }
 
-  const dueDate = body.dueDate ?? null;
+  const dueDate = body.dueDate || null;
   if (dueDate !== null && !isDate(dueDate)) return error(400, "invalid_date");
   const paymentUrl = typeof body.paymentUrl === "string" ? body.paymentUrl.trim() || null : null;
   if (paymentUrl && !/^https:\/\/\S+$/.test(paymentUrl)) return error(400, "invalid_url");
@@ -153,10 +154,13 @@ export const handleCollections: Handler = async (request, env, session, path) =>
   const body = await readJson<object>(request);
   if (body instanceof Response) return body;
   if (c.status === "voided") return json({ collection: c });
-  const own = await db.prepare("SELECT own_plan_id FROM collections WHERE id = ?").bind(id).first<{ own_plan_id: string | null }>();
-  const ownPlanId = own?.own_plan_id ?? null;
-  // La promesa propia se cancela solo si nadie le ha pagado nada.
-  const unpaid = ownPlanId ? !(await db.prepare("SELECT 1 FROM payments WHERE plan_id = ? LIMIT 1").bind(ownPlanId).first()) : false;
+  const own = await db
+    .prepare("SELECT pp.id, pp.paid_at, EXISTS (SELECT 1 FROM payments WHERE plan_id = pp.id) AS has_payments FROM collections c JOIN payment_plans pp ON pp.id = c.own_plan_id WHERE c.id = ?")
+    .bind(id)
+    .first<{ id: string; paid_at: string | null; has_payments: number }>();
+  // La promesa propia se cancela solo si no tiene pagos ni se marcó pagada a mano.
+  const unpaid = !!own && !own.paid_at && !own.has_payments;
+  const ownPlanId = own?.id ?? null;
   await db.batch([
     db.prepare("UPDATE collections SET voided_at = ? WHERE id = ?").bind(now(), id),
     ...(unpaid

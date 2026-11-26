@@ -20,10 +20,10 @@ interface Row {
 }
 
 /**
- * Pagado = pagos registrados desde la cuenta o contra una promesa enlazada.
- * Una sola suma con OR: un pago que cumple ambas condiciones cuenta una vez.
+ * Pagado = pagos registrados desde la cuenta, o contra una promesa enlazada desde que se emitió
+ * (lo abonado antes ya se descontó del valor de la línea). Una sola suma con OR: cada pago cuenta una vez.
  */
-const PAID = `(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.collection_id = c.id OR p.plan_id IN (SELECT cp.plan_id FROM collection_plans cp WHERE cp.collection_id = c.id))`;
+const PAID = `(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.collection_id = c.id OR (p.created_at >= c.created_at AND p.plan_id IN (SELECT cp.plan_id FROM collection_plans cp WHERE cp.collection_id = c.id)))`;
 
 const SELECT = `SELECT c.id, c.number, c.project_id, c.client_id, c.issued_at, c.currency, c.total, c.due_date, c.snapshot, c.drive_file_id, c.voided_at,
   (SELECT GROUP_CONCAT(cp.plan_id) FROM collection_plans cp WHERE cp.collection_id = c.id) AS plan_ids, ${PAID} AS paid FROM collections c`;
@@ -65,6 +65,20 @@ export async function loadCollection(db: D1Database, by: "id" | "number", value:
 export async function collectionPaid(db: D1Database, id: string): Promise<number> {
   const r = await db.prepare(`SELECT ${PAID} AS paid FROM collections c WHERE c.id = ?`).bind(id).first<{ paid: number }>();
   return r?.paid ?? 0;
+}
+
+/** La cuenta no anulada y sin pagar que ya cobra esta promesa, si la hay. */
+export async function openCollectionOfPlan(db: D1Database, planId: string): Promise<string | null> {
+  const r = await db
+    .prepare(`SELECT c.number FROM collections c JOIN collection_plans l ON l.collection_id = c.id WHERE l.plan_id = ? AND c.voided_at IS NULL AND ${PAID} < c.total LIMIT 1`)
+    .bind(planId)
+    .first<{ number: string }>();
+  return r?.number ?? null;
+}
+
+/** ¿Alguna cuenta no anulada enlaza esta promesa? */
+export async function planInCollection(db: D1Database, planId: string): Promise<boolean> {
+  return !!(await db.prepare("SELECT 1 FROM collection_plans l JOIN collections c ON c.id = l.collection_id WHERE l.plan_id = ? AND c.voided_at IS NULL LIMIT 1").bind(planId).first());
 }
 
 /** La primera promesa enlazada sin pagar (por fecha), para un pago registrado desde la cuenta. */

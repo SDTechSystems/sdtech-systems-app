@@ -4,7 +4,7 @@ import { logActivity } from "../activity";
 import { requireRole, type Handler } from "../auth/session";
 import { error, json, now, readJson } from "../http";
 import { activeMethodIds, loadPayments, syncPlanPaid } from "../payments/repo";
-import { firstOpenPlan } from "../collections/repo";
+import { firstOpenPlan, planInCollection } from "../collections/repo";
 import { getSettings } from "../settings";
 
 const validAmount = (v: unknown): v is number => Number.isInteger(v) && (v as number) > 0;
@@ -51,6 +51,7 @@ export const handleProjectPayments: Handler = async (request, env, session, path
   if (planId) {
     const plan = await db.prepare("SELECT id FROM payment_plans WHERE id = ? AND project_id = ?").bind(planId, projectId).first();
     if (!plan) return error(400, "invalid_plan");
+    if (collectionId && !(await db.prepare("SELECT 1 FROM collection_plans WHERE collection_id = ? AND plan_id = ?").bind(collectionId, planId).first())) return error(400, "invalid_plan");
   }
   const id = crypto.randomUUID();
   const t = now();
@@ -81,6 +82,7 @@ export const handlePaymentPlans: Handler = async (request, env, session, path) =
   if (!plan) return error(404, "not_found");
 
   if (request.method === "DELETE") {
+    if (await planInCollection(db, id)) return error(409, "plan_in_collection");
     await db.batch([
       db.prepare("UPDATE payments SET plan_id = NULL WHERE plan_id = ?").bind(id),
       db.prepare("DELETE FROM payment_plans WHERE id = ?").bind(id),

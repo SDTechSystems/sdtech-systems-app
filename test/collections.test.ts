@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import worker from "../worker/index";
 import { handleClients } from "../worker/api/clients";
-import { handlePayments, handleProjectPayments } from "../worker/api/payments";
+import { handlePaymentPlans, handlePayments, handleProjectPayments } from "../worker/api/payments";
+import { formatLongDate, todayBogota } from "../shared/dates";
 import { handleProjects } from "../worker/api/projects";
 import type { Collection, PaymentSummary, Project } from "../shared/types";
 import { jsonRequest, makeEnv } from "./helpers";
@@ -40,6 +41,11 @@ const plansOf = async (env: TestEnv, pid: string) =>
 const portalUrl = async (env: TestEnv, clientId: string) =>
   ((await (await handleClients(jsonRequest("POST", `${B}/clients/${clientId}/portal-link`, {}), env, owner, ["clients", clientId, "portal-link"])).json()) as { url: string }).url;
 const adminRequest = (method: string, path: string, body?: object) => jsonRequest(method, `${B}${path}`, body);
+
+/** Los pagos anteriores a la cuenta se separan por created_at: deja pasar un milisegundo. */
+const tick = () => new Promise((r) => setTimeout(r, 2));
+const voidCollection = (env: TestEnv, id: string) => worker.fetch(adminRequest("POST", `/collections/${id}/void`, {}), env, ctx);
+const errorOf = async (r: Response) => ((await r.json()) as { error: string }).error;
 
 /** El worker en pruebas autentica con DEV_AUTH_EMAIL (sin Access). */
 const devEnv = async (email = "juan@example.com") => makeEnv({ ACCESS_AUD: "", DEV_AUTH_EMAIL: email });
@@ -116,11 +122,83 @@ describe("collections", () => {
     const env = await devEnv();
     const { projectId, planId } = await jenEssence(env);
     await pay(env, projectId, { amount: 50000, planId });
+    await tick();
     const c = await issued(env, projectId, { lines: [{ ...planLine(planId), quantity: 3 }] });
     expect(c.total).toBe(400000);
     expect(c.lines[0]).toMatchObject({ quantity: 1, unitPrice: 400000, total: 400000 });
+    expect(c).toMatchObject({ paid: 0, status: "pending" });
     await pay(env, projectId, { amount: 400000, planId });
+    expect(await getCollection(env, c.id)).toMatchObject({ paid: 400000, status: "paid" });
     expect((await issue(env, projectId, { lines: [planLine(planId)] })).status).toBe(400);
+  });
+
+  it("does not count payments made to a linked promise before the collection was issued", async () => {
+    const env = await devEnv();
+    const { client, projectId, planId } = await jenEssence(env);
+    await pay(env, projectId, { amount: 50000, planId });
+    await tick();
+    const c = await issued(env, projectId, { lines: [planLine(planId)] });
+    expect(c).toMatchObject({ total: 400000, paid: 0, status: "pending" });
+    await pay(env, projectId, { amount: 350000, planId });
+    expect(await getCollection(env, c.id)).toMatchObject({ paid: 350000, status: "partial" });
+    expect(await (await worker.fetch(new Request(await portalUrl(env, client.id)), env, ctx)).text()).toContain("Abonada · falta $ 50.000");
+    await pay(env, projectId, { amount: 50000, planId });
+    expect(await getCollection(env, c.id)).toMatchObject({ paid: 400000, status: "paid" });
+    expect((await plansOf(env, projectId))[0].status).toBe("paid");
+  });
+
+  it("rejects a promise already billed in another open collection, until that one is voided", async () => {
+    const env = await devEnv();
+    const { projectId, planId } = await jenEssence(env);
+    const first = await issued(env, projectId, { lines: [planLine(planId)] });
+    const r = await issue(env, projectId, { lines: [planLine(planId)] });
+    expect(r.status).toBe(400);
+    expect(await errorOf(r)).toBe("plan_already_billed");
+    await voidCollection(env, first.id);
+    expect((await issue(env, projectId, { lines: [planLine(planId)] })).status).toBe(201);
+  });
+
+  it("rejects a payment from a collection that names a promise the collection does not bill", async () => {
+    const env = await devEnv();
+    const { projectId, planId } = await jenEssence(env);
+    const s = (await (
+      await handleProjectPayments(jsonRequest("POST", `${B}/projects/${projectId}/payment-plans`, { label: "Saldo", amount: 100000, dueDate: "2026-12-20" }), env, owner, ["projects", projectId, "payment-plans"])
+    ).json()) as PaymentSummary;
+    const unlinked = s.plans.find((p) => p.label === "Saldo")!.id;
+    const c = await issued(env, projectId, { lines: [planLine(planId)] });
+    const r = await pay(env, projectId, { amount: 1000, collectionId: c.id, planId: unlinked });
+    expect(r.status).toBe(400);
+    expect(await errorOf(r)).toBe("invalid_plan");
+  });
+
+  it("does not let a promise billed in an open collection be deleted", async () => {
+    const env = await devEnv();
+    const { projectId, planId } = await jenEssence(env);
+    const c = await issued(env, projectId, { lines: [planLine(planId)] });
+    const del = () => handlePaymentPlans(jsonRequest("DELETE", `${B}/payment-plans/${planId}`), env, owner, ["payment-plans", planId]);
+    const r = await del();
+    expect(r.status).toBe(409);
+    expect(await errorOf(r)).toBe("plan_in_collection");
+    await voidCollection(env, c.id);
+    expect((await del()).status).toBe(200);
+  });
+
+  it("keeps its own promise on void when it was marked paid by hand", async () => {
+    const env = await devEnv();
+    const { projectId } = await jenEssence(env);
+    const c = await issued(env, projectId, { lines: [freeLine(100000)], dueDate: "2026-12-10" });
+    const own = (await plansOf(env, projectId)).find((p) => p.label === c.number)!;
+    await handlePaymentPlans(jsonRequest("PATCH", `${B}/payment-plans/${own.id}`, { paid: true }), env, owner, ["payment-plans", own.id]);
+    await voidCollection(env, c.id);
+    expect((await plansOf(env, projectId)).map((p) => p.id)).toContain(own.id);
+  });
+
+  it("treats an empty due date as no date", async () => {
+    const env = await devEnv();
+    const { projectId } = await jenEssence(env);
+    const c = await issued(env, projectId, { lines: [freeLine(100000)], dueDate: "" });
+    expect(c.dueDate).toBeNull();
+    expect((await plansOf(env, projectId)).map((p) => p.label)).toEqual(["Pago"]);
   });
 
   it("validates lines, plans, dates and links", async () => {
@@ -233,10 +311,13 @@ describe("collections", () => {
     await issued(env, projectId, { lines: [planLine(planId)] });
     const voided = await issued(env, projectId, { lines: [freeLine(1000)] });
     await worker.fetch(adminRequest("POST", `/collections/${voided.id}/void`, {}), env, ctx);
+    await issued(env, projectId, { lines: [freeLine(1000)], dueDate: "2026-12-20" });
     await pay(env, projectId, { amount: 200000, planId });
     const url = await portalUrl(env, client.id);
     let home = await (await worker.fetch(new Request(url), env, ctx)).text();
     expect(home).toContain("Abonada · falta $ 250.000");
+    expect(home).toContain(`Jen Essence · Emitida el ${formatLongDate(todayBogota())}</div>`);
+    expect(home).toContain(`Emitida el ${formatLongDate(todayBogota())} · Fecha acordada de pago: 20 de diciembre de 2026`);
     expect(home).not.toContain("CC-0002");
     await pay(env, projectId, { amount: 250000, planId });
     home = await (await worker.fetch(new Request(url), env, ctx)).text();
