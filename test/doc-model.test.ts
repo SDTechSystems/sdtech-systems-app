@@ -4,6 +4,7 @@ import { receiptDocModel } from "../shared/docs/receipt";
 import { DEFAULT_SETTINGS } from "../worker/settings";
 import type { Invoice, Quote, Settings } from "../shared/types";
 
+const THIRD_PARTY = "Los costos de terceros (dominio, hosting, plataformas) pueden variar según el proveedor y la tasa de cambio.";
 const PORTAL = "https://clientes.sdtechsystems.dev/c/abc";
 const client = { name: "María Gómez", company: "Jen Essence", document: "1234", city: "Medellín", phone: "573058147293", email: "maria@example.com" };
 
@@ -74,6 +75,13 @@ describe("document model", () => {
     expect(m.note).toBe("Incluye hosting el primer año");
     expect(m.conditions).toEqual(["Primera condición", "Segunda condición"]);
     expect(m.footer).toMatchObject({ qrUrl: PORTAL, verifyCode: null, verifyUrl: null });
+    expect(m.smallPrint).toBe(THIRD_PARTY);
+  });
+
+  it("quote model keeps the third-party costs note even when the conditions are empty", () => {
+    const m = quoteDocModel({ ...quote, conditions: "" }, client, DEFAULT_SETTINGS, PORTAL);
+    expect(m.conditions).toEqual([]);
+    expect(m.smallPrint).toBe(THIRD_PARTY);
   });
 
   it("quote model in dollars uses the dollar payment text", () => {
@@ -103,5 +111,6 @@ describe("document model", () => {
     expect(m.facts).toEqual([{ label: "Proyecto", value: "Web Jen Essence" }]);
     expect(m.footer).toMatchObject({ qrUrl: PORTAL, verifyCode: "ABCDEFGHJK", verifyUrl: "clientes.sdtechsystems.dev/verificar/ABCDEFGHJK" });
     expect(m.company.taxNote).toBe("No responsable de IVA");
+    expect(m.smallPrint).toBeNull();
   });
 });

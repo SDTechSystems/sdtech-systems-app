@@ -77,7 +77,7 @@ describe("client portal", () => {
     const r = await fetchPortal(env, `${url}/cotizacion/COT-0001`);
     expect(r.status).toBe(200);
     const html = await r.text();
-    for (const text of ["Llave Bre-B 3058147293 · Davibank", "Válida hasta", "$ 890.000", "$ 445.000", "Una página con 6 secciones", "<svg"]) expect(html).toContain(text);
+    for (const text of ["<strong>Llave Bre-B</strong>: 3058147293 · Davibank", "Válida hasta", "$ 890.000", "$ 445.000", "Una página con 6 secciones", "Los costos de terceros (dominio, hosting, plataformas) pueden variar según el proveedor y la tasa de cambio.", "<svg"]) expect(html).toContain(text);
   });
 
   it("lets the client approve once with their name and then shows the project", async () => {
@@ -314,6 +314,7 @@ describe("unified document page", () => {
     note: "Nota <b>importante</b>",
     conditions: ["Condición uno"],
     thanks: "Gracias por confiar en SD Tech Systems.",
+    smallPrint: "Letra pequeña de prueba.",
     footer: { qrUrl: "https://clientes.sdtechsystems.dev/c/abc", qrCaption: "Escanea para ver tu página.", verifyCode: null, verifyUrl: null },
   };
   const render = (pdf: boolean) => renderDocHtml(model, { backUrl: "https://clientes.sdtechsystems.dev/c/abc", pdf }).text();
@@ -321,7 +322,7 @@ describe("unified document page", () => {
   it("keeps the fixed block order", async () => {
     const html = await render(false);
     const body = html.slice(html.indexOf("<article"));
-    const order = ["logo-color.svg", "NIT 901.234.567-8", "CUENTA DE COBRO", "CC-0003", "Para", "Jennifer", "De", "Fecha acordada de pago", "el valor a pagar es", "cuatrocientos cincuenta mil pesos", "Kit de marca estándar", "Total", "Medios de pago", "Pagar en línea", "Nota &lt;b&gt;importante&lt;/b&gt;", "Condición uno", "Gracias por confiar", "<svg", "No responsable de IVA"];
+    const order = ["logo-color.svg", "NIT 901.234.567-8", "CUENTA DE COBRO", "CC-0003", "<b>Para</b>", "Jennifer", '<b class="from">De</b>', "<b>Detalles</b>", "Fecha acordada de pago", "el valor a pagar es", "cuatrocientos cincuenta mil pesos", "Kit de marca estándar", 'class="totals"', "Medios de pago", "Pagar en línea", "Nota &lt;b&gt;importante&lt;/b&gt;", "Condición uno", "Letra pequeña de prueba.", "Gracias por confiar", "<svg", "No responsable de IVA"];
     let at = -1;
     for (const t of order) {
       const i = body.indexOf(t, at + 1);
@@ -329,6 +330,7 @@ describe("unified document page", () => {
       at = i;
     }
     expect(body).toContain("ANULADA");
+    expect(body).toContain("<li><strong>Bre-B</strong>: 3058147293 · Davibank</li><li><strong>Nequi</strong></li>");
     expect(html).toContain('href="https://bold.co/pay/x"');
   });
 

@@ -26,12 +26,13 @@ body{background:var(--ink)}
 .totals .minus{color:var(--soft);font-size:.88rem}.totals .bal{font-weight:700;color:var(--blue);font-size:1.05rem;border-top:1px solid var(--line)}
 .pay{margin-top:22px;border:2px solid var(--cyan);border-radius:12px;padding:12px 16px;overflow-wrap:anywhere}
 .pay b{display:block;color:var(--navy);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}
-.pay ul{list-style:none;margin:0;padding:0;font-weight:700;color:var(--navy)}
+.pay ul{list-style:none;margin:0;padding:0;color:var(--navy)}.pay li strong{font-weight:700}
 .links{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
 .links a{display:inline-block;background:var(--navy);color:#fff;border-radius:999px;padding:10px 18px;font-weight:700;font-size:.9rem;text-decoration:none;overflow-wrap:anywhere}
 h2{font-size:.95rem;color:var(--navy);margin:24px 0 8px;letter-spacing:.04em;text-transform:uppercase}
 ol{margin:0;padding-left:20px;font-size:.86rem;color:#33445C}ol li{margin-bottom:4px}
 .notes{font-size:.9rem;white-space:pre-wrap;overflow-wrap:anywhere}
+.small-print{font-size:.82rem;color:var(--soft);margin:10px 0 0}
 .thanks{margin:22px 0 0;font-weight:700;color:var(--navy)}
 .foot{display:flex;gap:16px;align-items:center;margin-top:26px;border-top:1px solid var(--line);padding-top:16px}
 .foot .qr{width:110px;flex:none}.foot .qr svg{width:100%;height:auto;display:block}
@@ -83,10 +84,11 @@ ${m.intro ? `<div class="intro"><p>${esc(m.intro.text)}</p><p class="amount"><st
 ${m.lines.map((l) => `<tr><td class="desc"><strong>${esc(l.title)}</strong>${l.detail ? `<div class="detail">${esc(l.detail)}</div>` : ""}</td><td class="n" data-label="Cant.">${l.quantity}</td><td class="n" data-label="Valor unitario">${money(l.unitPrice)}</td><td class="n" data-label="Total">${money(l.total)}</td></tr>`).join("")}
 </tbody></table>
 <div class="totals">${m.totals.map(total).join("")}</div>
-${m.payment ? `<div class="pay"><b>${esc(m.payment.title)}</b><ul>${m.payment.items.map((i) => `<li>${esc(i.name)}${i.detail ? ` ${esc(i.detail)}` : ""}</li>`).join("")}</ul></div>` : ""}
+${m.payment ? `<div class="pay"><b>${esc(m.payment.title)}</b><ul>${m.payment.items.map((i) => `<li><strong>${esc(i.name)}</strong>${i.detail ? `: ${esc(i.detail)}` : ""}</li>`).join("")}</ul></div>` : ""}
 ${links.length ? `<div class="links">${links.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join("")}</div>` : ""}
 ${m.note ? `<h2>Nota</h2><div class="notes">${esc(m.note)}</div>` : ""}
 ${m.conditions.length ? `<h2>Condiciones</h2><ol>${m.conditions.map((l) => `<li>${esc(l)}</li>`).join("")}</ol>` : ""}
+${m.smallPrint ? `<p class="small-print">${esc(m.smallPrint)}</p>` : ""}
 ${m.thanks ? `<p class="thanks">${esc(m.thanks)}</p>` : ""}
 <div class="foot"><div class="qr">${qrSvg(m.footer.qrUrl)}</div><div><p>${esc(m.footer.qrCaption)}</p>${verify}${c.taxNote ? `<p class="tax">${esc(c.taxNote)}</p>` : ""}</div></div>
 </article>

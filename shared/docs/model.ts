@@ -4,7 +4,7 @@ import type { Currency, Invoice, Settings } from "../types";
  * Un solo modelo para cotización, cuenta de cobro y recibo. Lo dibujan el HTML del
  * portal (worker/portal/doc-html.ts) y el PDF, siempre con el mismo orden de bloques:
  * logo+empresa → título+número → Para/De+facts → intro → tabla → totales → pago →
- * links → nota → condiciones → gracias → pie (QR, verificación, leyenda fiscal).
+ * links → nota → condiciones → letra pequeña → gracias → pie (QR, verificación, leyenda fiscal).
  */
 export type DocKind = "quote" | "collection" | "receipt";
 
@@ -41,6 +41,8 @@ export interface DocModel {
   note: string | null;
   conditions: string[];
   thanks: string | null;
+  /** Letra pequeña fija del tipo de documento (en la cotización, la nota de costos de terceros). */
+  smallPrint: string | null;
   footer: { qrUrl: string; qrCaption: string; verifyCode: string | null; verifyUrl: string | null };
 }
 

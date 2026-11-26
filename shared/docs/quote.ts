@@ -3,6 +3,9 @@ import { formatMoney } from "../money";
 import type { Quote, Settings } from "../types";
 import { docCompany, docParty, type DocClient, type DocModel } from "./model";
 
+/** Va en toda cotización, aunque Juan edite o borre las condiciones. */
+export const QUOTE_SMALL_PRINT = "Los costos de terceros (dominio, hosting, plataformas) pueden variar según el proveedor y la tasa de cambio.";
+
 export function quoteDocModel(q: Quote, client: DocClient, settings: Settings, portalUrl: string): DocModel {
   const s = settings.payment;
   const payItem =
@@ -30,6 +33,7 @@ export function quoteDocModel(q: Quote, client: DocClient, settings: Settings, p
     note: q.notes.trim() || null,
     conditions: q.conditions.split("\n").map((l) => l.trim()).filter(Boolean),
     thanks: null,
+    smallPrint: QUOTE_SMALL_PRINT,
     footer: {
       qrUrl: portalUrl,
       qrCaption: "Escanea el código o entra a tu página de seguimiento para aprobar esta cotización y ver el avance de tu proyecto.",

@@ -30,6 +30,7 @@ export function receiptDocModel(inv: Invoice, settings: Settings, portalUrl: str
     note: null,
     conditions: [],
     thanks: null,
+    smallPrint: null,
     footer: {
       qrUrl: portalUrl,
       qrCaption: "Escanea para ver tu proyecto, tus servicios y tus pagos.",
