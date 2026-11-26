@@ -1,3 +1,4 @@
+import { MAX_DETAIL } from "../../shared/docs/model";
 import type { CollectionLineInput, CollectionLineSource, InvoiceLine } from "../../shared/types";
 import { error } from "../http";
 
@@ -40,6 +41,7 @@ export async function priceLines(
   if (!Array.isArray(input) || !input.length) return error(400, "lines_required");
   const lines = input as CollectionLineInput[];
   if (!lines.every(validLine)) return error(400, "invalid_line");
+  if (lines.some((l) => (l.detail?.trim().length ?? 0) > MAX_DETAIL)) return error(400, "detail_too_long");
   const plans = new Map(
     (
       await db

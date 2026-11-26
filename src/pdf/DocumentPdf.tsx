@@ -1,6 +1,6 @@
 import { Document, Image, Link, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatMoney } from "../../shared/money";
-import { companyLines, docFacts, voidMark, webLinks, type DocModel } from "../../shared/docs/model";
+import { companyLines, docFacts, MAX_DETAIL, voidMark, webLinks, type DocModel } from "../../shared/docs/model";
 import { registerFonts } from "./fonts";
 import { QrCode } from "./QrCode";
 
@@ -13,6 +13,26 @@ const FOOTER_H = 16;
 const LOGO_W = 150;
 /** Columnas de la tabla: Cant., Valor unitario, Total. */
 const COL = { qty: 36, unit: 88, total: 88 };
+
+/**
+ * Si la fila cabe entera en una hoja: entonces no se parte (`wrap={false}`). Cuenta los renglones
+ * del detalle por lo alto: ~55 unidades por renglón en la columna de descripción, las mayúsculas
+ * pesan más y la W/M el doble; caben unos 55 renglones bajo el encabezado de una hoja y se deja margen.
+ * Un detalle viejo de más de 2.000 caracteres, o uno de cientos de renglones, puede seguir en la hoja siguiente.
+ */
+const MAX_ROW_LINES = 48;
+const CHARS_PER_LINE = 55;
+const charWeight = (ch: string) => (/[WMwm@%]/.test(ch) ? 1.8 : /[A-ZÁÉÍÓÚÑ]/.test(ch) ? 1.3 : 1);
+function rowFitsOnePage(detail: string): boolean {
+  if (detail.length > MAX_DETAIL) return false;
+  let lines = 0;
+  for (const paragraph of detail.split("\n")) {
+    let units = 0;
+    for (const ch of paragraph) units += charWeight(ch);
+    lines += Math.max(1, Math.ceil(units / CHARS_PER_LINE));
+  }
+  return lines <= MAX_ROW_LINES;
+}
 
 const s = StyleSheet.create({
   page: { fontFamily: "SD Sans", fontSize: 9.5, color: C.text, paddingTop: MARGIN, paddingHorizontal: MARGIN, paddingBottom: MARGIN + FOOTER_H + 8 },
@@ -176,7 +196,7 @@ export function DocumentPdf({ model: m, assetsBase }: { model: DocModel; assetsB
               <Text style={[s.n, { width: COL.total }]}>Total</Text>
             </View>
             {m.lines.map((l, i) => (
-              <View key={i} style={s.tr} wrap={false}>
+              <View key={i} style={s.tr} wrap={!rowFitsOnePage(l.detail)}>
                 <View style={s.desc}>
                   <Text style={s.lineTitle}>{l.title}</Text>
                   {l.detail ? <Text style={s.detail}>{l.detail}</Text> : null}

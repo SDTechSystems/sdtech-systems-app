@@ -40,6 +40,7 @@ const ERRORS: Record<string, string> = {
   lines_required: "No hay nada que cobrar todavía: agrega al menos una línea",
   nothing_paid: "Esa cuenta de cobro aún no tiene pagos: registra el pago antes de emitir el recibo",
   invalid_line: "Revisa las líneas: cada una necesita título, cantidad y valor",
+  detail_too_long: "El detalle de una línea puede tener hasta 2.000 caracteres",
   invalid_plan: "Esa promesa ya está pagada o no es de este proyecto",
   plan_already_billed: "Esa promesa ya está en otra cuenta de cobro abierta",
   plan_in_collection: "Esa promesa está en una cuenta de cobro: anúlala primero",

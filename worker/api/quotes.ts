@@ -1,4 +1,5 @@
 import { addDays, todayBogota } from "../../shared/dates";
+import { MAX_DETAIL } from "../../shared/docs/model";
 import type { Currency, Quote, QuoteStatus, Service } from "../../shared/types";
 import { logActivity } from "../activity";
 import { requireRole, type Handler } from "../auth/session";
@@ -42,9 +43,11 @@ function cleanItems(items: unknown): CleanItem[] | Response {
       Number.isInteger(raw.unitPrice) &&
       (raw.unitPrice as number) >= 0;
     if (!ok) return error(400, "invalid_items");
+    const detail = typeof raw.detail === "string" ? raw.detail.trim() : "";
+    if (detail.length > MAX_DETAIL) return error(400, "detail_too_long");
     out.push({
       title,
-      detail: typeof raw.detail === "string" ? raw.detail.trim() : "",
+      detail,
       quantity: raw.quantity as number,
       unitPrice: raw.unitPrice as number,
       catalogItemId: typeof raw.catalogItemId === "string" && raw.catalogItemId ? raw.catalogItemId : null,

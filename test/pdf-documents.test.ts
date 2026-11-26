@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { collectionDocModel } from "../shared/docs/collection";
 import { DEFAULT_TEMPLATES } from "../shared/templates";
 import type { Collection, Invoice, Settings } from "../shared/types";
@@ -75,4 +75,32 @@ it("offers the agreed date to a custom collection template", () => {
   const settings = { ...DEFAULT_SETTINGS, templates: { ...DEFAULT_SETTINGS.templates, collection: "{numero} vence el {fecha}" } };
   expect(pdfDocText({ kind: "collection", doc: collection }, settings, PORTAL)).toBe("CC-0003 vence el 5 de diciembre de 2026");
   expect(pdfDocText({ kind: "collection", doc: { ...collection, dueDate: null } }, settings, PORTAL)).toBe("CC-0003 vence el ");
+});
+
+it("tells Juan what happened after Enviar, without asking to drag a file on a phone", async () => {
+  const { sendNotice } = await import("../src/pdf/documents");
+  const retry = { status: "retry" as const, share: async () => ({ status: "shared" as const }) };
+  expect(sendNotice({ status: "shared" }, false)).toBeNull();
+  expect(sendNotice(retry, true)).toBe("Listo el PDF: toca Compartir para enviarlo por WhatsApp.");
+  expect(sendNotice({ status: "downloaded", copied: null }, false)).toBe("PDF descargado: arrástralo al chat de WhatsApp.");
+  const onPhone = sendNotice({ status: "downloaded", copied: null }, true);
+  expect(onPhone).toBe("Descargamos el PDF y abrimos WhatsApp: adjúntalo desde tus archivos.");
+  expect(onPhone).not.toMatch(/arrastr/);
+  expect(sendNotice({ status: "downloaded", copied: true }, false)).toBe("PDF descargado. El cliente no tiene WhatsApp: copiamos el mensaje.");
+  expect(sendNotice({ status: "downloaded", copied: false }, true)).toBe("PDF descargado. El cliente no tiene WhatsApp y no pudimos copiar el mensaje.");
+});
+
+it("warms the PDF library and fonts once per session, when the browser is idle", async () => {
+  const { warmPdf } = await import("../src/pdf/documents");
+  const load = vi.fn(async () => undefined);
+  const later: (() => void)[] = [];
+  const schedule = (fn: () => void) => later.push(fn);
+  warmPdf(load, schedule);
+  warmPdf(load, schedule);
+  expect(load).not.toHaveBeenCalled();
+  later.forEach((fn) => fn());
+  await Promise.resolve();
+  expect(load).toHaveBeenCalledOnce();
+  warmPdf(load, schedule);
+  expect(later).toHaveLength(1);
 });

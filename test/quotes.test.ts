@@ -50,6 +50,14 @@ describe("quotes API", () => {
     expect((await create(env, "nope")).body).toEqual({ error: "invalid_client" });
   });
 
+  it("caps an item's detail at 2,000 characters so the PDF row fits on a page", async () => {
+    const env = await makeEnv();
+    const c = await newClient(env);
+    const item = (detail: string) => ({ items: [{ title: "Landing", detail, quantity: 1, unitPrice: 1000 }] });
+    expect((await create(env, c.id, item("a".repeat(2001)))).body).toEqual({ error: "detail_too_long" });
+    expect((await create(env, c.id, item(`  ${"a".repeat(2000)}  `))).status).toBe(201);
+  });
+
   it("is owner-only", async () => {
     const env = await makeEnv();
     expect((await call(env, "GET", ["quotes"], undefined, socio)).status).toBe(403);

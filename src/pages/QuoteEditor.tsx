@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { MAX_DETAIL } from "../../shared/docs/model";
 import { formatMoney, parseMoneyInput } from "../../shared/money";
 import type { Client, Currency, Quote, Service, Settings } from "../../shared/types";
 import { Button } from "@/components/ui/button";
@@ -169,7 +170,7 @@ export default function QuoteEditor() {
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
-              <Textarea aria-label="Detalle" rows={2} placeholder="Detalle: qué incluye, entregables…" value={l.detail} onChange={(e) => update(l.key, { detail: e.target.value })} />
+              <Textarea aria-label="Detalle" rows={2} maxLength={MAX_DETAIL} placeholder="Detalle: qué incluye, entregables…" value={l.detail} onChange={(e) => update(l.key, { detail: e.target.value })} />
               <div className="grid grid-cols-[5rem_1fr] gap-2">
                 <Input aria-label="Cantidad" inputMode="numeric" value={l.quantity} onChange={(e) => update(l.key, { quantity: e.target.value })} />
                 <Input aria-label="Precio" inputMode="decimal" placeholder={l.suggested || "Precio unitario"} aria-invalid={checked && parseMoneyInput(l.price, currency) === null} value={l.price} onChange={(e) => update(l.key, { price: e.target.value })} />

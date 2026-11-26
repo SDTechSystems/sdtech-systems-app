@@ -210,6 +210,7 @@ describe("collections", () => {
     expect(await code({ lines: [{ ...freeLine(1000), title: " " }] })).toBe("invalid_line");
     expect(await code({ lines: [{ ...freeLine(1000), quantity: 0 }] })).toBe("invalid_line");
     expect(await code({ lines: [freeLine(-1)] })).toBe("invalid_line");
+    expect(await code({ lines: [{ ...freeLine(1000), detail: "a".repeat(2001) }] })).toBe("detail_too_long");
     expect(await code({ lines: [planLine(other.planId)] })).toBe("invalid_plan");
     expect(await code({ lines: [planLine(planId), planLine(planId)] })).toBe("invalid_plan");
     expect(await code({ lines: [freeLine(1000)], dueDate: "5 dic" })).toBe("invalid_date");

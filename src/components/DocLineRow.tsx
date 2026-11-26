@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, Lock, Trash2 } from "lucide-react";
+import { MAX_DETAIL } from "../../shared/docs/model";
 import { formatMoney, parseMoneyInput } from "../../shared/money";
 import type { Currency } from "../../shared/types";
 import { Button } from "@/components/ui/button";
@@ -42,7 +43,7 @@ export function DocLineRow({
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
-      <Textarea aria-label="Detalle" rows={1} className="min-h-10" placeholder="Detalle (opcional)" value={l.detail} onChange={(e) => onChange({ detail: e.target.value })} />
+      <Textarea aria-label="Detalle" rows={1} maxLength={MAX_DETAIL} className="min-h-10" placeholder="Detalle (opcional)" value={l.detail} onChange={(e) => onChange({ detail: e.target.value })} />
       {l.locked ? (
         <p className="flex items-center gap-1.5 text-sm">
           <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />

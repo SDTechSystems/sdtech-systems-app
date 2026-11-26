@@ -7,6 +7,9 @@ import type { Currency, Invoice, Settings } from "../types";
  * logo+empresa → título+número → Para/De+facts → intro → tabla → totales → pago →
  * links → nota → condiciones → letra pequeña → gracias → pie (QR, verificación, leyenda fiscal).
  */
+/** Largo máximo del detalle de una línea: así la fila del PDF, que nunca se parte, cabe en una hoja. */
+export const MAX_DETAIL = 2000;
+
 export type DocKind = "quote" | "collection" | "receipt";
 
 /** Dominio del portal de clientes; ahí vive la verificación pública (worker/portal/verify.ts). */

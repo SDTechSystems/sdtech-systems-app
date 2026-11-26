@@ -172,6 +172,7 @@ describe("invoices", () => {
     expect(await errorOf(await issue(env, projectId, owner, { paymentIds: "x" }))).toBe("invalid_payment");
     expect(await errorOf(await issue(env, projectId, owner, { lines: [{ source: "plan", planId: "nope", title: "Pago", detail: "", quantity: 1, unitPrice: 1 }] }))).toBe("invalid_plan");
     expect(await errorOf(await issue(env, projectId, owner, { lines: [free("", 1000)] }))).toBe("invalid_line");
+    expect(await errorOf(await issue(env, projectId, owner, { lines: [{ ...free("Ajuste", 1000), detail: "a".repeat(2001) }] }))).toBe("detail_too_long");
     expect(await errorOf(await issue(env, projectId, owner, { collectionId: "nope" }))).toBe("invalid_collection");
   });
 

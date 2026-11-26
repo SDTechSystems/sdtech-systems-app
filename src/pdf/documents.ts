@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { formatLongDate } from "../../shared/dates";
 import { collectionDocModel } from "../../shared/docs/collection";
@@ -10,7 +10,7 @@ import { fillTemplate } from "../../shared/templates";
 import type { Collection, Invoice, Quote, Settings } from "../../shared/types";
 import { errorMessage, firstName, quoteWhatsAppText } from "@/lib/labels";
 import { getPortalUrl } from "@/lib/quote-actions";
-import { canShareFiles, sharePdf } from "@/lib/share-pdf";
+import { canShareFiles, sharePdf, type ShareResult } from "@/lib/share-pdf";
 import { useSettingsQuery } from "@/lib/useSettings";
 import { logReminder } from "@/lib/whatsapp";
 import { downloadBlob } from "./download";
@@ -46,7 +46,7 @@ async function buildPdf(d: PdfDoc, settings: Settings) {
  * Sin menú de compartir, la pestaña de WhatsApp se abre antes de esperar, porque los navegadores
  * bloquean ventanas abiertas después de un await.
  */
-export async function sendDocPdf(d: PdfDoc, settings: Settings, phone: string | null): Promise<"shared" | "downloaded"> {
+export async function sendDocPdf(d: PdfDoc, settings: Settings, phone: string | null): Promise<ShareResult> {
   const tab = phone && !canShareFiles() ? window.open("about:blank", "_blank") : null;
   try {
     const pdf = await buildPdf(d, settings);
@@ -66,15 +66,63 @@ export async function downloadDocPdf(d: PdfDoc, settings: Settings): Promise<voi
   downloadBlob(blob, fileName);
 }
 
+/** El aviso después de «Enviar». En el celular no se habla de arrastrar el archivo. */
+export function sendNotice(result: ShareResult, onPhone: boolean): string | null {
+  if (result.status === "shared") return null;
+  if (result.status === "retry") return "Listo el PDF: toca Compartir para enviarlo por WhatsApp.";
+  if (result.copied === null) return onPhone ? "Descargamos el PDF y abrimos WhatsApp: adjúntalo desde tus archivos." : "PDF descargado: arrástralo al chat de WhatsApp.";
+  return result.copied ? "PDF descargado. El cliente no tiene WhatsApp: copiamos el mensaje." : "PDF descargado. El cliente no tiene WhatsApp y no pudimos copiar el mensaje.";
+}
+
+const onPhone = () => !!window.matchMedia?.("(pointer: coarse)").matches;
+
+const whenIdle = (fn: () => void) => {
+  if ("requestIdleCallback" in window) window.requestIdleCallback(fn, { timeout: 4000 });
+  else setTimeout(fn, 1500);
+};
+
+let warm: "no" | "loading" | "done" = "no";
+
+/** Precarga la librería de PDF y las fuentes una vez por sesión, cuando el navegador está libre. */
+export function warmPdf(load: () => Promise<void> = async () => (await import("./render")).preloadPdf(), schedule: (fn: () => void) => void = whenIdle): void {
+  if (warm !== "no") return;
+  warm = "loading";
+  schedule(() => {
+    load().then(
+      () => (warm = "done"),
+      () => (warm = "no"),
+    );
+  });
+}
+
+/** Muestra el aviso de «Enviar»; si el navegador pidió un toque nuevo, con el botón «Compartir». */
+function notify(result: ShareResult): void {
+  const message = sendNotice(result, onPhone());
+  if (!message) return;
+  if (result.status !== "retry") {
+    toast.success(message);
+    return;
+  }
+  toast(message, {
+    duration: 30_000,
+    action: {
+      label: "Compartir",
+      onClick: () => {
+        result.share().then(notify, (e) => toast.error(errorMessage(e)));
+      },
+    },
+  });
+}
+
 /** Los dos botones de PDF de un documento. `busy` es «send:<id>» o «download:<id>» mientras se arma. */
 export function useDocPdf() {
   const settings = useSettingsQuery().data?.settings;
   const [busy, setBusy] = useState<string | null>(null);
-  const run = async (key: string, job: () => Promise<string | null>) => {
+  useEffect(() => warmPdf(), []);
+  const run = async (key: string, job: () => Promise<void>) => {
     setBusy(key);
     try {
-      const message = await job();
-      if (message) toast.success(message);
+      await job();
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -84,18 +132,7 @@ export function useDocPdf() {
   return {
     ready: !!settings,
     busy,
-    send: (d: PdfDoc, phone: string | null) =>
-      settings &&
-      run(`send:${d.doc.id}`, async () => {
-        const result = await sendDocPdf(d, settings, phone);
-        if (result === "shared") return null;
-        return phone ? "PDF descargado: arrástralo al chat de WhatsApp." : "PDF descargado. El cliente no tiene WhatsApp: copiamos el mensaje.";
-      }),
-    download: (d: PdfDoc) =>
-      settings &&
-      run(`download:${d.doc.id}`, async () => {
-        await downloadDocPdf(d, settings);
-        return null;
-      }),
+    send: (d: PdfDoc, phone: string | null) => settings && run(`send:${d.doc.id}`, async () => notify(await sendDocPdf(d, settings, phone))),
+    download: (d: PdfDoc) => settings && run(`download:${d.doc.id}`, () => downloadDocPdf(d, settings)),
   };
 }
