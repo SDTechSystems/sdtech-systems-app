@@ -1,6 +1,6 @@
 # Cuentas de cobro, recibos de pago, catálogo en píldoras y Drive — Diseño
 
-Fecha: 2026-11-26 · Estado: **revisado, para aprobación de Juan** · Amplía
+Fecha: 2026-11-26 · Estado: **aprobado por Juan (2026-11-26)** · Amplía
 [`2026-11-25-sdtech-systems-app-design.md`](2026-11-25-sdtech-systems-app-design.md)
 (el «diseño base»).
 
@@ -259,8 +259,17 @@ dentro de su proyecto.
     También la puedes ver en tu página: {link}». Igual para el recibo.
   - El envío queda en el historial como recordatorio enviado.
 - **Descargar PDF** también disponible por separado.
-- El portal sigue con su página HTML y «Guardar PDF» del navegador; no carga la
-  librería de PDF.
+- **Mismo documento en todas partes (pedido de Juan):** el cliente en su portal, Juan
+  en el panel, en celular o computador, obtienen exactamente el mismo PDF.
+  - Un solo modelo de documento (en `shared/`) alimenta un solo diseño de PDF, que
+    usan el panel y el portal.
+  - En el portal, «Descargar PDF» arma el PDF con ese mismo diseño (un script aparte,
+    servido como archivo estático y cargado solo al oprimir el botón). Reemplaza
+    «Guardar PDF» del navegador.
+  - La página del documento en el portal sigue la misma estructura y el mismo orden
+    de bloques que el PDF (encabezado, partes, tabla, totales, pago, pie), adaptada a
+    la pantalla del celular sin desbordarse.
+  - Aplica a cotizaciones, cuentas de cobro y recibos.
 
 ### 5.6 Google Drive
 **Conexión:** el mismo «Conectar Google» de Ajustes pide ahora dos permisos: Calendar
@@ -347,7 +356,8 @@ Link de entrega: drive.google.com/…   [Copiar] [Abrir]
   proyecto.
 - Las cotizaciones guardan su PDF en Drive al enviarlas o renovarlas.
 - Recibos nuevos `REC-`, los viejos conservan `FAC-`.
-- El portal no genera PDF; usa su página imprimible.
+- El portal descarga el mismo PDF del panel (pedido de Juan), con un script cargado
+  solo al oprimir «Descargar PDF».
 
 ## 7. Lo que queda a criterio de quien construye
 
