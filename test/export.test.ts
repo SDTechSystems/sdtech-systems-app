@@ -17,6 +17,7 @@ describe("export", () => {
     mockGoogle();
     await connectGoogle(env);
     await approvedProject(env);
+    await env.DB.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('drive', ?)").bind(JSON.stringify({ rootId: "root-1" })).run();
     const r = await handleExport(jsonRequest("GET", `${B}/export`), env, owner, ["export"]);
     expect(r.status).toBe(200);
     expect(r.headers.get("content-disposition")).toMatch(/attachment; filename="sdtech-systems-\d{4}-\d{2}-\d{2}\.json"/);
@@ -27,6 +28,10 @@ describe("export", () => {
     expect(data.tables.clients).toHaveLength(1);
     expect(text).not.toContain("refreshToken");
     expect(data.tables).not.toHaveProperty("oauth_states");
+    expect(Object.keys(data.tables)).toEqual(expect.arrayContaining(["collections", "collection_plans", "project_files"]));
+    const keys = (data.tables.settings as { key: string }[]).map((r) => r.key);
+    expect(keys).toContain("drive");
+    expect(keys).not.toContain("google");
   });
 
   it("is owner-only", async () => {

@@ -37,7 +37,7 @@ que sirve de evidencia al cobrar.
 
 **No-metas (por ahora)**
 - Factura electrónica DIAN.
-- Guardar archivos en la nube (solo links de Drive).
+- Archivos en el Drive de Juan, no en Cloudflare.
 - Enviar WhatsApp automáticamente (es un botón que Juan oprime).
 - Usuario y contraseña para clientes.
 - Que el cliente agende reuniones por su cuenta.
@@ -192,6 +192,8 @@ permiso `calendar.events`). El token de renovación se guarda cifrado en la base
 datos. Si Google desconecta la cuenta, Pendientes muestra un aviso para reconectar.
 
 ### 6.10 Factura final
+> **Actualización (2026-11-26):** la factura final ahora es el **Recibo de pago** (`REC-`), y el cobro previo es la **cuenta de cobro** (`CC-`). Ver [`2026-11-26-cuentas-de-cobro-drive-design.md`](2026-11-26-cuentas-de-cobro-drive-design.md). Lo de abajo queda como historia.
+
 - **Número:** consecutivo `FAC-0001`. Se emite desde el proyecto.
 - **Contenido:** logo, datos de SD Tech Systems, número y fecha, datos del cliente, **ítems discriminados** (los de la cotización más cada cambio aprobado en su propia línea), total, pagos recibidos y saldo.
 - **Dato de pago:** solo el **QR al portal del cliente**, sin datos bancarios. Ahí el cliente ve su pedido, sus suscripciones y lo que siga en curso.

@@ -25,7 +25,7 @@ Node 22 y npm.
 ```sh
 npm ci
 cp .dev.vars.example .dev.vars   # pon tu correo
-npm run build
+npm run build                    # corre dos compilaciones de Vite: el panel y dist/pdf/portal.js
 npx wrangler dev --local         # http://localhost:8787, entra sin login con DEV_AUTH_EMAIL
 ```
 
@@ -84,6 +84,15 @@ Se usan secretos porque las variables de texto que no están en `wrangler.jsonc`
 2. En el panel, **Ajustes → Usuarios → Agregar**.
 
 Las dos cosas son necesarias: Access lo deja entrar y el panel le da el rol de colaborador. Un colaborador no ve precios, pagos, catálogo ni ajustes.
+
+### 5. Google Drive, NIT y medios de pago (cuentas de cobro, recibos y archivos)
+
+1. **Google Cloud** (el mismo proyecto de Calendar):
+   - activar la **Google Drive API**;
+   - en la pantalla de consentimiento, agregar el permiso `https://www.googleapis.com/auth/drive.file`.
+2. En el panel, **Ajustes → Google → Reconectar**, y aceptar Calendar y Drive.
+3. **Ajustes → Empresa:** NIT y leyenda fiscal.
+4. **Ajustes → Medios de pago:** número de Nequi y revisar la lista.
 
 ## Licencia
 
