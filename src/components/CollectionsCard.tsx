@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Download, ExternalLink, FileCheck2, FileText, MessageCircle, Plus, Wallet, X } from "lucide-react";
+import { CloudUpload, Download, ExternalLink, FileCheck2, FileText, MessageCircle, Plus, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 import { dayOf } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
@@ -92,6 +92,11 @@ export function CollectionsCard({
                   <Button size="sm" variant="outline" disabled={!pdf.ready || !!pdf.busy} onClick={() => pdf.download({ kind: "collection", doc: c })}>
                     <Download className="h-4 w-4" /> {pdf.busy === `download:${c.id}` ? "Generando…" : "Descargar PDF"}
                   </Button>
+                  {pdf.drive && (
+                    <Button size="sm" variant="outline" disabled={!pdf.ready || pdf.saving.includes(c.id)} onClick={() => pdf.saveToDrive({ kind: "collection", doc: c })}>
+                      <CloudUpload className="h-4 w-4" /> {pdf.saving.includes(c.id) ? "Guardando…" : "Guardar en Drive"}
+                    </Button>
+                  )}
                   {live && (
                     <Button size="sm" variant="outline" onClick={() => onPay(c)}>
                       <Wallet className="h-4 w-4" /> Registrar pago

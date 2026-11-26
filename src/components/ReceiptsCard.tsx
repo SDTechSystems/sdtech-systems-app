@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Download, ExternalLink, FileCheck2, MessageCircle, Plus, X } from "lucide-react";
+import { CloudUpload, Download, ExternalLink, FileCheck2, MessageCircle, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { dayOf } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
@@ -72,6 +72,11 @@ export function ReceiptsCard({ projectId, client, invoices, onNew }: { projectId
                 <Button size="sm" variant="outline" disabled={!pdf.ready || !!pdf.busy} onClick={() => pdf.download({ kind: "receipt", doc: inv })}>
                   <Download className="h-4 w-4" /> {pdf.busy === `download:${inv.id}` ? "Generando…" : "Descargar PDF"}
                 </Button>
+                {pdf.drive && (
+                  <Button size="sm" variant="outline" disabled={!pdf.ready || pdf.saving.includes(inv.id)} onClick={() => pdf.saveToDrive({ kind: "receipt", doc: inv })}>
+                    <CloudUpload className="h-4 w-4" /> {pdf.saving.includes(inv.id) ? "Guardando…" : "Guardar en Drive"}
+                  </Button>
+                )}
                 {!inv.voided && (
                   <Button size="sm" variant="ghost" onClick={() => confirm(`¿Anular ${inv.number}? Seguirá existiendo, marcado como anulado.`) && call.mutate({ path: `/api/admin/invoices/${inv.id}/void` })}>
                     <X className="h-4 w-4" /> Anular

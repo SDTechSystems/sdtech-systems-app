@@ -35,6 +35,7 @@
     "test/keyboard-scroll.test.ts",
     "test/pdf.test.ts",
     "test/pdf-documents.test.ts",
-    "test/share-pdf.test.ts"
+    "test/share-pdf.test.ts",
+    "test/drive-upload.test.ts"
   ]
 }

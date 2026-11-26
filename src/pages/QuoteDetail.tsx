@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Check, Download, ExternalLink, FolderKanban, MessageCircle, Pencil, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, Check, CloudUpload, Download, ExternalLink, FolderKanban, MessageCircle, Pencil, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { formatMoney } from "../../shared/money";
 import type { Client, Quote } from "../../shared/types";
@@ -11,13 +11,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiGet, apiSend } from "@/lib/api";
 import { errorMessage, formatDate, formatDateTime } from "@/lib/labels";
 import { getPortalUrl, shareQuote } from "@/lib/quote-actions";
-import { useDocPdf } from "@/pdf/documents";
+import { useDocPdf, useDriveAutoSave } from "@/pdf/documents";
 
 export default function QuoteDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const pdf = useDocPdf();
+  const autoSave = useDriveAutoSave();
   const { data, isLoading } = useQuery({ queryKey: ["quote", id], queryFn: () => apiGet<{ quote: Quote }>(`/api/admin/quotes/${id}`) });
   const quote = data?.quote;
   const client = useQuery({
@@ -36,7 +37,9 @@ export default function QuoteDetail() {
       if (action === "share") return { shared: await shareQuote(quote!, client.data!.client) };
       if (action === "send") {
         const { quote: sent } = await apiSend<{ quote: Quote }>("POST", `/api/admin/quotes/${id}/send`, {});
-        return { shared: await shareQuote(sent, client.data!.client) };
+        const shared = await shareQuote(sent, client.data!.client);
+        autoSave({ kind: "quote", doc: sent, client: client.data!.client });
+        return { shared };
       }
       let note: string | undefined;
       if (action === "approve" || action === "reject") {
@@ -50,7 +53,10 @@ export default function QuoteDetail() {
       if ("cancelled" in r) return;
       refresh();
       if ("shared" in r) toast.success(r.shared ? "Abriendo WhatsApp…" : "El cliente no tiene WhatsApp: copiamos el mensaje.");
-      else if (action === "renew" && "quote" in r) navigate(`/cotizaciones/${r.quote.id}/editar`);
+      else if (action === "renew" && "quote" in r) {
+        autoSave({ kind: "quote", doc: r.quote, client: client.data!.client });
+        navigate(`/cotizaciones/${r.quote.id}/editar`);
+      }
       else if (action === "approve") toast.success("Aprobada. Se creó el proyecto.");
       else toast.success("Listo");
     },
@@ -120,6 +126,11 @@ export default function QuoteDetail() {
             <Button variant="outline" disabled={busy || !pdf.ready || !!pdf.busy} onClick={() => pdf.download({ kind: "quote", doc: quote, client: client.data.client })}>
               <Download className="h-4 w-4" /> {pdf.busy === `download:${quote.id}` ? "Generando…" : "Descargar PDF"}
             </Button>
+            {pdf.drive && (
+              <Button variant="outline" disabled={!pdf.ready || pdf.saving.includes(quote.id)} onClick={() => pdf.saveToDrive({ kind: "quote", doc: quote, client: client.data.client })}>
+                <CloudUpload className="h-4 w-4" /> {pdf.saving.includes(quote.id) ? "Guardando…" : "Guardar en Drive"}
+              </Button>
+            )}
           </>
         )}
         {quote.status === "sent" && (

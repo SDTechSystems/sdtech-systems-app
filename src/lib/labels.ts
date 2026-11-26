@@ -3,6 +3,7 @@ import { formatMoney } from "../../shared/money";
 import { DEFAULT_TEMPLATES, fillTemplate } from "../../shared/templates";
 import type { Billing, CatalogItem, PhaseStatus, ProjectStatus, Quote, QuoteStatus, Service, SubscriptionKind } from "../../shared/types";
 import { ApiError } from "./api";
+import { DriveUploadError } from "./drive-upload";
 
 export const SERVICE_LABEL: Record<Service, string> = {
   web: "Páginas web",
@@ -50,11 +51,26 @@ const ERRORS: Record<string, string> = {
   delivery_url_required: "Primero guarda un link o sube la entrega",
   invalid_amount: "Revisa el valor: debe ser mayor que 0",
   invalid_method: "Elige un medio de pago activo",
+  drive_not_connected: "Reconecta Google para usar Drive",
+  drive_error: "Google Drive no respondió. Intenta de nuevo.",
+  invalid_file: "Revisa el archivo: está vacío o tiene un nombre muy largo",
 };
 
 export function errorMessage(e: unknown): string {
   if (e instanceof ApiError) return ERRORS[e.code] ?? `Algo salió mal (${e.code})`;
+  if (e instanceof DriveUploadError) return "Google Drive no aceptó la subida. Intenta de nuevo.";
   return "No se pudo conectar. Revisa tu internet.";
+}
+
+/** «248 MB», «1,2 GB». */
+export function formatBytes(n: number): string {
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i++;
+  }
+  return `${new Intl.NumberFormat("es-CO", { maximumFractionDigits: i && n < 10 ? 1 : 0 }).format(n)} ${units[i]}`;
 }
 
 export const formatDateTime = (iso: string): string =>

@@ -8,6 +8,8 @@ import { receiptDocModel } from "../../shared/docs/receipt";
 import { formatMoney } from "../../shared/money";
 import { fillTemplate } from "../../shared/templates";
 import type { Collection, Invoice, Quote, Settings } from "../../shared/types";
+import { saveDocToDrive } from "@/lib/drive-upload";
+import { driveReady, useGoogleStatus } from "@/lib/google";
 import { errorMessage, firstName, quoteWhatsAppText } from "@/lib/labels";
 import { getPortalUrl } from "@/lib/quote-actions";
 import { canShareFiles, sharePdf, type ShareResult } from "@/lib/share-pdf";
@@ -66,6 +68,31 @@ export async function downloadDocPdf(d: PdfDoc, settings: Settings): Promise<voi
   downloadBlob(blob, fileName);
 }
 
+/** Arma el PDF y lo guarda en la carpeta de Drive del documento (reemplaza el que ya estaba). */
+export async function saveDocPdfToDrive(d: PdfDoc, settings: Settings): Promise<void> {
+  const portalUrl = await getPortalUrl(d.doc.clientId);
+  await saveDocToDrive({ type: d.kind, id: d.doc.id }, pdfDocModel(d, settings, portalUrl));
+}
+
+/** Guarda el PDF en Drive sin hacer esperar a nadie; si falla, un aviso con «Reintentar». */
+export function saveDocInBackground(d: PdfDoc, settings: Settings): void {
+  const run = () => {
+    saveDocPdfToDrive(d, settings).catch((e) =>
+      toast.error(`No pudimos guardar ${d.doc.number} en Drive`, { description: errorMessage(e), duration: 30_000, action: { label: "Reintentar", onClick: run } }),
+    );
+  };
+  run();
+}
+
+/** Guardado automático en Drive después de emitir o enviar; no hace nada si Drive no está conectado. */
+export function useDriveAutoSave(): (d: PdfDoc) => void {
+  const settings = useSettingsQuery().data?.settings;
+  const drive = driveReady(useGoogleStatus().data);
+  return (d) => {
+    if (settings && drive) saveDocInBackground(d, settings);
+  };
+}
+
 /** El aviso después de «Enviar». En el celular no se habla de arrastrar el archivo. */
 export function sendNotice(result: ShareResult, onPhone: boolean): string | null {
   if (result.status === "shared") return null;
@@ -114,10 +141,15 @@ function notify(result: ShareResult): void {
   });
 }
 
-/** Los dos botones de PDF de un documento. `busy` es «send:<id>» o «download:<id>» mientras se arma. */
+/**
+ * Los botones de PDF de un documento. `busy` es «send:<id>» o «download:<id>» mientras se arma;
+ * `saving` tiene los ids que se están guardando en Drive (no bloquea los otros botones).
+ */
 export function useDocPdf() {
   const settings = useSettingsQuery().data?.settings;
+  const drive = driveReady(useGoogleStatus().data);
   const [busy, setBusy] = useState<string | null>(null);
+  const [saving, setSaving] = useState<string[]>([]);
   useEffect(() => warmPdf(), []);
   const run = async (key: string, job: () => Promise<void>) => {
     setBusy(key);
@@ -134,5 +166,21 @@ export function useDocPdf() {
     busy,
     send: (d: PdfDoc, phone: string | null) => settings && run(`send:${d.doc.id}`, async () => notify(await sendDocPdf(d, settings, phone))),
     download: (d: PdfDoc) => settings && run(`download:${d.doc.id}`, () => downloadDocPdf(d, settings)),
+    /** «Guardar en Drive» se muestra solo con Drive conectado. */
+    drive,
+    saving,
+    saveToDrive: async (d: PdfDoc) => {
+      if (!settings) return;
+      const id = d.doc.id;
+      setSaving((s) => [...s, id]);
+      try {
+        await saveDocPdfToDrive(d, settings);
+        toast.success(`${d.doc.number} guardado en Drive`);
+      } catch (e) {
+        toast.error(errorMessage(e));
+      } finally {
+        setSaving((s) => s.filter((x) => x !== id));
+      }
+    },
   };
 }

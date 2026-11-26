@@ -9,6 +9,7 @@ import { PaymentsCard } from "@/components/PaymentsCard";
 import { ReceiptsCard } from "@/components/ReceiptsCard";
 import { apiGet } from "@/lib/api";
 import { useSettingsQuery } from "@/lib/useSettings";
+import { useDriveAutoSave } from "@/pdf/documents";
 
 type EditorState = { mode: DocEditorMode; planIds?: string[]; from?: Collection };
 
@@ -22,6 +23,7 @@ export function ProjectBilling({ project, client, lastReminders }: { project: Pr
   const invoices = useQuery({ queryKey: ["invoices", id], queryFn: () => apiGet<{ invoices: Invoice[] }>(`/api/admin/projects/${id}/invoices`) });
   const changes = useQuery({ queryKey: ["changes", id], queryFn: () => apiGet<{ changes: ChangeRequest[] }>(`/api/admin/projects/${id}/changes`) });
   const quote = useQuery({ queryKey: ["quote", project.quoteId], queryFn: () => apiGet<{ quote: Quote }>(`/api/admin/quotes/${project.quoteId}`), enabled: !!project.quoteId });
+  const autoSave = useDriveAutoSave();
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [paying, setPaying] = useState<PaymentTarget | null>(null);
 
@@ -33,6 +35,7 @@ export function ProjectBilling({ project, client, lastReminders }: { project: Pr
     for (const key of [["collections", id], ["invoices", id], ["payments", id], ["project", id], ["pending"]]) qc.invalidateQueries({ queryKey: key });
     toast.success(`${doc.number} ${"verifyCode" in doc ? "emitido" : "emitida"}`);
     setEditor(null);
+    autoSave("verifyCode" in doc ? { kind: "receipt", doc } : { kind: "collection", doc });
   };
 
   return (

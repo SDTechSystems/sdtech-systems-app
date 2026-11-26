@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { quoteWhatsAppText } from "../src/lib/labels";
+import { formatBytes, quoteWhatsAppText } from "../src/lib/labels";
 import type { Quote } from "../shared/types";
 
 it("writes the WhatsApp message for a quote", () => {
@@ -13,4 +13,11 @@ it("prints signed amounts for cost changes", async () => {
   const { signedMoney } = await import("../src/lib/labels");
   expect(signedMoney(150000, "COP")).toBe("+ $ 150.000");
   expect(signedMoney(-120000, "COP")).toBe("− $ 120.000");
+});
+
+it("writes file sizes the Colombian way", () => {
+  expect(formatBytes(900)).toBe("900 B");
+  expect(formatBytes(1536)).toBe("1,5 KB");
+  expect(formatBytes(248 * 1024 * 1024)).toBe("248 MB");
+  expect(formatBytes(1.2 * 1024 ** 3)).toBe("1,2 GB");
 });
