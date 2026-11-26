@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, FileCheck2, MessageCircle, Plus, X } from "lucide-react";
+import { Download, ExternalLink, FileCheck2, MessageCircle, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { dayOf } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
@@ -8,13 +8,14 @@ import { Pill } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiSend } from "@/lib/api";
-import { errorMessage, firstName, formatDate } from "@/lib/labels";
+import { errorMessage, formatDate } from "@/lib/labels";
 import { getPortalUrl } from "@/lib/quote-actions";
-import { openWhatsApp } from "@/lib/whatsapp";
+import { useDocPdf } from "@/pdf/documents";
 
-/** Recibos de pago del proyecto. «Emitir recibo» abre el editor (modo recibo). */
-export function ReceiptsCard({ projectId, client, invoices, onNew }: { projectId: string; client: Pick<Client, "id" | "name" | "phone">; invoices: Invoice[]; onNew: () => void }) {
+/** Recibos de pago del proyecto. «Emitir recibo» abre el editor (modo recibo); «Enviar» manda el PDF por WhatsApp. */
+export function ReceiptsCard({ projectId, client, invoices, onNew }: { projectId: string; client: Pick<Client, "id" | "phone">; invoices: Invoice[]; onNew: () => void }) {
   const qc = useQueryClient();
+  const pdf = useDocPdf();
   const key = ["invoices", projectId];
   const call = useMutation({
     mutationFn: ({ path }: { path: string }) => apiSend("POST", path, {}),
@@ -29,11 +30,6 @@ export function ReceiptsCard({ projectId, client, invoices, onNew }: { projectId
     const tab = window.open("about:blank", "_blank");
     const url = await getPortalUrl(client.id);
     if (tab) tab.location.href = `${url}/recibo/${inv.number}`;
-  };
-  const send = async (inv: Invoice) => {
-    const tab = client.phone ? window.open("about:blank", "_blank") : null;
-    const url = await getPortalUrl(client.id);
-    if (!openWhatsApp(client.phone, `Hola ${firstName(client.name)}, te comparto el recibo de pago ${inv.number}: ${url}/recibo/${inv.number}`, tab)) toast.success("El cliente no tiene WhatsApp: copiamos el mensaje.");
   };
   return (
     <Card>
@@ -69,14 +65,17 @@ export function ReceiptsCard({ projectId, client, invoices, onNew }: { projectId
                   <ExternalLink className="h-4 w-4" /> Ver
                 </Button>
                 {!inv.voided && (
-                  <>
-                    <Button size="sm" variant="whatsapp" onClick={() => send(inv)}>
-                      <MessageCircle className="h-4 w-4" /> Enviar
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => confirm(`¿Anular ${inv.number}? Seguirá existiendo, marcado como anulado.`) && call.mutate({ path: `/api/admin/invoices/${inv.id}/void` })}>
-                      <X className="h-4 w-4" /> Anular
-                    </Button>
-                  </>
+                  <Button size="sm" variant="whatsapp" disabled={!pdf.ready || !!pdf.busy} onClick={() => pdf.send({ kind: "receipt", doc: inv }, client.phone)}>
+                    <MessageCircle className="h-4 w-4" /> {pdf.busy === `send:${inv.id}` ? "Generando…" : "Enviar"}
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" disabled={!pdf.ready || !!pdf.busy} onClick={() => pdf.download({ kind: "receipt", doc: inv })}>
+                  <Download className="h-4 w-4" /> {pdf.busy === `download:${inv.id}` ? "Generando…" : "Descargar PDF"}
+                </Button>
+                {!inv.voided && (
+                  <Button size="sm" variant="ghost" onClick={() => confirm(`¿Anular ${inv.number}? Seguirá existiendo, marcado como anulado.`) && call.mutate({ path: `/api/admin/invoices/${inv.id}/void` })}>
+                    <X className="h-4 w-4" /> Anular
+                  </Button>
                 )}
               </div>
             </div>

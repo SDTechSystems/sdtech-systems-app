@@ -31,6 +31,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webp}"],
+        // La librería de PDF (src/pdf/render.ts) se baja solo al generar un documento; el PDF del portal (/pdf/) no es del panel.
+        globIgnores: ["pdf/**", "assets/render-*.js"],
         navigateFallbackDenylist: [/^\/api\//],
       },
     }),

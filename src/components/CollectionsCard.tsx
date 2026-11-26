@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, FileCheck2, FileText, Plus, Wallet, X } from "lucide-react";
+import { Download, ExternalLink, FileCheck2, FileText, MessageCircle, Plus, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 import { dayOf } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiSend } from "@/lib/api";
 import { errorMessage, formatDate } from "@/lib/labels";
 import { getPortalUrl } from "@/lib/quote-actions";
+import { useDocPdf } from "@/pdf/documents";
 
 const STATUS: Record<CollectionStatus, readonly ["slate" | "amber" | "green" | "red", string]> = {
   pending: ["slate", "Pendiente"],
@@ -18,7 +19,7 @@ const STATUS: Record<CollectionStatus, readonly ["slate" | "amber" | "green" | "
   voided: ["red", "Anulada"],
 };
 
-/** Cuentas de cobro del proyecto (CC-0001…). Enviar y Descargar PDF llegan con el PDF. */
+/** Cuentas de cobro del proyecto (CC-0001…). «Enviar» manda el PDF por WhatsApp; «Descargar PDF» solo lo descarga. */
 export function CollectionsCard({
   projectId,
   client,
@@ -28,13 +29,14 @@ export function CollectionsCard({
   onReceipt,
 }: {
   projectId: string;
-  client: Pick<Client, "id">;
+  client: Pick<Client, "id" | "phone">;
   collections: Collection[];
   onNew: () => void;
   onPay: (c: Collection) => void;
   onReceipt: (c: Collection) => void;
 }) {
   const qc = useQueryClient();
+  const pdf = useDocPdf();
   const voidIt = useMutation({
     mutationFn: (c: Collection) => apiSend("POST", `/api/admin/collections/${c.id}/void`, {}),
     onSuccess: () => {
@@ -81,6 +83,14 @@ export function CollectionsCard({
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="outline" onClick={() => open(c)}>
                     <ExternalLink className="h-4 w-4" /> Ver
+                  </Button>
+                  {c.status !== "voided" && (
+                    <Button size="sm" variant="whatsapp" disabled={!pdf.ready || !!pdf.busy} onClick={() => pdf.send({ kind: "collection", doc: c }, client.phone)}>
+                      <MessageCircle className="h-4 w-4" /> {pdf.busy === `send:${c.id}` ? "Generando…" : "Enviar"}
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" disabled={!pdf.ready || !!pdf.busy} onClick={() => pdf.download({ kind: "collection", doc: c })}>
+                    <Download className="h-4 w-4" /> {pdf.busy === `download:${c.id}` ? "Generando…" : "Descargar PDF"}
                   </Button>
                   {live && (
                     <Button size="sm" variant="outline" onClick={() => onPay(c)}>

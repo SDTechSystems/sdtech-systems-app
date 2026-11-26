@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Check, ExternalLink, FolderKanban, MessageCircle, Pencil, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, Check, Download, ExternalLink, FolderKanban, MessageCircle, Pencil, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { formatMoney } from "../../shared/money";
 import type { Client, Quote } from "../../shared/types";
@@ -11,11 +11,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiGet, apiSend } from "@/lib/api";
 import { errorMessage, formatDate, formatDateTime } from "@/lib/labels";
 import { getPortalUrl, shareQuote } from "@/lib/quote-actions";
+import { useDocPdf } from "@/pdf/documents";
 
 export default function QuoteDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const pdf = useDocPdf();
   const { data, isLoading } = useQuery({ queryKey: ["quote", id], queryFn: () => apiGet<{ quote: Quote }>(`/api/admin/quotes/${id}`) });
   const quote = data?.quote;
   const client = useQuery({
@@ -109,6 +111,16 @@ export default function QuoteDetail() {
           >
             <ExternalLink className="h-4 w-4" /> Ver documento
           </Button>
+        )}
+        {quote.status !== "draft" && client.data && (
+          <>
+            <Button variant="whatsapp" disabled={busy || !pdf.ready || !!pdf.busy} onClick={() => pdf.send({ kind: "quote", doc: quote, client: client.data.client }, client.data.client.phone)}>
+              <MessageCircle className="h-4 w-4" /> {pdf.busy === `send:${quote.id}` ? "Generando…" : "Enviar PDF"}
+            </Button>
+            <Button variant="outline" disabled={busy || !pdf.ready || !!pdf.busy} onClick={() => pdf.download({ kind: "quote", doc: quote, client: client.data.client })}>
+              <Download className="h-4 w-4" /> {pdf.busy === `download:${quote.id}` ? "Generando…" : "Descargar PDF"}
+            </Button>
+          </>
         )}
         {quote.status === "sent" && (
           <>

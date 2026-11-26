@@ -285,12 +285,12 @@ describe("client portal", () => {
     const quote = await fetchPortal(env, `${url}/cotizacion/COT-0001`);
     expect(quote.status).toBe(200);
     const quoteHtml = await quote.text();
-    for (const t of ["COTIZACIÓN", "COT-0001", 'id="doc-model"', "Guardar PDF", "No responsable de IVA"]) expect(quoteHtml).toContain(t);
+    for (const t of ["COTIZACIÓN", "COT-0001", 'id="doc-model"', "Descargar PDF", "No responsable de IVA"]) expect(quoteHtml).toContain(t);
     for (const path of ["recibo", "factura"]) {
       const receipt = await fetchPortal(env, `${url}/${path}/REC-0001`);
       expect(receipt.status).toBe(200);
       const html = await receipt.text();
-      for (const t of ["RECIBO DE PAGO", "REC-0001", 'id="doc-model"', "Guardar PDF", "No responsable de IVA", "Código de verificación"]) expect(html).toContain(t);
+      for (const t of ["RECIBO DE PAGO", "REC-0001", 'id="doc-model"', "Descargar PDF", "No responsable de IVA", "Código de verificación"]) expect(html).toContain(t);
       expect(html).not.toContain("FACTURA");
     }
   });
@@ -362,6 +362,15 @@ describe("unified document page", () => {
     const pdf = await render(true);
     expect(pdf).toContain('id="download-pdf"');
     expect(pdf).toContain("Descargar PDF");
-    expect(pdf).not.toContain("window.print()");
+    expect(pdf).not.toContain('onclick="window.print()"');
+  });
+
+  it("builds the PDF with the portal bundle on click and prints if it cannot load", async () => {
+    const html = await render(true);
+    const script = html.slice(html.lastIndexOf("<script>"));
+    expect(script).toContain('import("/pdf/portal.js")');
+    expect(script).toContain("downloadPdf()");
+    expect(script).toMatch(/catch[^}]*window\.print\(\)/);
+    expect(await render(false)).not.toContain("/pdf/portal.js");
   });
 });

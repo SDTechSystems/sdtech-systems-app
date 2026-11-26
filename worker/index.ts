@@ -92,7 +92,8 @@ export default {
 
 async function handlePortalHost(request: Request, env: Env, url: URL, ctx: ExecutionContext): Promise<Response> {
   const p = url.pathname;
-  if (p.startsWith("/brand/") || p.startsWith("/fonts/") || p === "/favicon.ico") return env.ASSETS.fetch(request);
+  // Logo, fuentes y el PDF (/pdf/portal.js, que arma el mismo PDF del panel) salen de los archivos estáticos.
+  if (p.startsWith("/brand/") || p.startsWith("/fonts/") || p.startsWith("/pdf/") || p === "/favicon.ico") return env.ASSETS.fetch(request);
   const isPortal = p.startsWith("/c/") || p.startsWith("/api/portal/") || p.startsWith(`/${VERIFY_PATH}/`);
   if (!isPortal) return p.startsWith("/api/") ? error(404, "not_found") : homePage();
 

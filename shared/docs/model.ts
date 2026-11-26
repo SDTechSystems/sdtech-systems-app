@@ -1,3 +1,4 @@
+import { formatLongDate } from "../dates";
 import type { Currency, Invoice, Settings } from "../types";
 
 /**
@@ -61,3 +62,21 @@ export const docParty = (c: DocClient): DocModel["party"] => ({
   name: c.name,
   lines: [c.company, c.document ? `Documento: ${c.document}` : null, c.city, c.phone ? `+${c.phone}` : null, c.email].filter((l): l is string => !!l),
 });
+
+/** «Recibo» es masculino; «cotización» y «cuenta de cobro», femeninos. */
+const masculine = (m: DocModel) => m.kind === "receipt";
+
+/** Las filas del cuadro «Detalles»: la fecha de emisión primero. */
+export const docFacts = (m: DocModel): DocModel["facts"] => [
+  ...(m.issuedOn ? [{ label: masculine(m) ? "Emitido" : "Emitida", value: formatLongDate(m.issuedOn) }] : []),
+  ...m.facts,
+];
+
+/** La marca de agua de un documento anulado. */
+export const voidMark = (m: DocModel): string => (masculine(m) ? "ANULADO" : "ANULADA");
+
+/** Líneas de la empresa bajo su nombre. */
+export const companyLines = (c: DocModel["company"]): string[] => [c.nit ? `NIT ${c.nit}` : "", c.phone, c.email, c.website].filter(Boolean);
+
+/** Solo enlaces web: un «javascript:» nunca llega a un href. */
+export const webLinks = (m: DocModel): DocModel["links"] => m.links.filter((l) => /^https?:\/\//i.test(l.url));

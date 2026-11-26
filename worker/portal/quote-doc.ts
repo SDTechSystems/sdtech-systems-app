@@ -11,5 +11,5 @@ export interface QuoteDocData {
 }
 
 export function renderQuoteDocument(d: QuoteDocData): Response {
-  return renderDocHtml(quoteDocModel(d.quote, d.client, d.settings, d.portalUrl), { backUrl: d.portalUrl, pdf: false });
+  return renderDocHtml(quoteDocModel(d.quote, d.client, d.settings, d.portalUrl), { backUrl: d.portalUrl, pdf: true });
 }

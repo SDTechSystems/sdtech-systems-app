@@ -24,6 +24,10 @@ describe("router", () => {
     expect(page).toContain('href="https://sdtechsystems.dev/es/"');
   });
 
+  it("serves the PDF bundle, its fonts and the PNG logo on the clients host", async () => {
+    for (const p of ["/pdf/portal.js", "/fonts/DejaVuSans.ttf", "/brand/logo-color.png"]) expect(await (await get(`https://clientes.sdtechsystems.dev${p}`)).text(), p).toBe("asset");
+  });
+
   it("requires Access on the panel API", async () => {
     expect((await get("https://panel.sdtechsystems.dev/api/admin/me")).status).toBe(401);
   });

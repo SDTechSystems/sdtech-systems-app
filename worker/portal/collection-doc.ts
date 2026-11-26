@@ -4,5 +4,5 @@ import { renderDocHtml } from "./doc-html";
 
 /** Cuenta de cobro en el portal: /c/<token>/cobro/CC-0001. */
 export function renderCollectionDocument(c: Collection, settings: Settings, portalUrl: string): Response {
-  return renderDocHtml(collectionDocModel(c, settings, portalUrl), { backUrl: portalUrl, pdf: false });
+  return renderDocHtml(collectionDocModel(c, settings, portalUrl), { backUrl: portalUrl, pdf: true });
 }

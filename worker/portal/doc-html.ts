@@ -1,6 +1,5 @@
-import { formatLongDate } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
-import type { DocModel } from "../../shared/docs/model";
+import { companyLines, docFacts, voidMark, webLinks, type DocModel } from "../../shared/docs/model";
 import { brandLogo, esc, page, qrSvg } from "./html";
 
 /** Hoja blanca del documento (cotización, cuenta de cobro, recibo). En ≤ 640 px la tabla pasa a filas apiladas. */
@@ -53,15 +52,18 @@ ol{margin:0;padding-left:20px;font-size:.86rem;color:#33445C}ol li{margin-bottom
 @media print{body{background:#fff}.tools{display:none}.sheet{box-shadow:none;margin:0;max-width:none;padding:0;animation:none}.links a::after{content:" · " attr(href);font-weight:400}@page{margin:14mm}}
 `;
 
+/**
+ * «Descargar PDF»: trae /pdf/portal.js solo al oprimir el botón y arma el mismo PDF del panel
+ * con el modelo de #doc-model. Si el módulo no carga, queda la impresión del navegador.
+ */
+const PDF_SCRIPT = `document.getElementById("download-pdf").addEventListener("click",async e=>{const b=e.currentTarget;if(b.disabled)return;const t=b.textContent;b.disabled=true;b.textContent="Generando PDF…";try{const m=await import("/pdf/portal.js");await m.downloadPdf()}catch(err){window.print()}finally{b.disabled=false;b.textContent=t}});`;
+
 /** La página del documento en el portal. El orden de bloques es el mismo del PDF. */
 export function renderDocHtml(model: DocModel, opts: { backUrl: string; pdf: boolean }): Response {
   const m = model;
   const money = (n: number) => esc(formatMoney(n, m.currency));
   const c = m.company;
-  const companyLines = [c.nit ? `NIT ${c.nit}` : "", c.phone, c.email, c.website].filter(Boolean);
-  // «Recibo» es masculino; «cotización» y «cuenta de cobro», femeninos.
-  const masculine = m.kind === "receipt";
-  const facts = [...(m.issuedOn ? [{ label: masculine ? "Emitido" : "Emitida", value: formatLongDate(m.issuedOn) }] : []), ...m.facts];
+  const facts = docFacts(m);
   const button = opts.pdf
     ? `<button type="button" id="download-pdf">Descargar PDF</button>`
     : `<button type="button" onclick="window.print()">Guardar PDF</button>`;
@@ -69,15 +71,14 @@ export function renderDocHtml(model: DocModel, opts: { backUrl: string; pdf: boo
     const cls = { grand: "grand", minus: "minus", balance: "bal", plain: "" }[t.tone];
     return `<div${cls ? ` class="${cls}"` : ""}><span>${esc(t.label)}</span><span>${t.tone === "minus" ? "− " : ""}${money(t.amount)}</span></div>`;
   };
-  // Solo enlaces web: un «javascript:» nunca llega a un href.
-  const links = m.links.filter((l) => /^https?:\/\//i.test(l.url));
+  const links = webLinks(m);
   const verify = m.footer.verifyCode
     ? `<p>Código de verificación: <code>${esc(m.footer.verifyCode)}</code>${m.footer.verifyUrl ? `<br>${esc(m.footer.verifyUrl)}` : ""}</p>`
     : "";
 
   const body = `<div class="tools"><a href="${esc(opts.backUrl)}">← Volver</a>${button}</div>
-<article class="sheet">${m.voided ? `<div class="void">${masculine ? "ANULADO" : "ANULADA"}</div>` : ""}
-<div class="top">${brandLogo("color", c.name)}<div class="company"><strong>${esc(c.name)}</strong>${companyLines.map((l) => `<br>${esc(l)}`).join("")}</div></div>
+<article class="sheet">${m.voided ? `<div class="void">${voidMark(m)}</div>` : ""}
+<div class="top">${brandLogo("color", c.name)}<div class="company"><strong>${esc(c.name)}</strong>${companyLines(c).map((l) => `<br>${esc(l)}`).join("")}</div></div>
 <div class="title"><h1>${esc(m.title)}</h1><span class="num">${esc(m.number)}</span></div>
 <div class="meta"><div class="box"><b>Para</b>${esc(m.party.name)}${m.party.lines.map((l) => `<br>${esc(l)}`).join("")}${m.from ? `<b class="from">De</b>${esc(m.from)}` : ""}</div>
 <div class="box"><b>Detalles</b>${facts.map((f) => `${esc(f.label)}: ${esc(f.value)}`).join("<br>") || "—"}</div></div>
@@ -95,5 +96,5 @@ ${m.thanks ? `<p class="thanks">${esc(m.thanks)}</p>` : ""}
 <div class="foot"><div class="qr">${qrSvg(m.footer.qrUrl)}</div><div><p>${esc(m.footer.qrCaption)}</p>${verify}${c.taxNote ? `<p class="tax">${esc(c.taxNote)}</p>` : ""}</div></div>
 </article>
 <script type="application/json" id="doc-model">${JSON.stringify(m).replace(/</g, "\\u003c")}</script>`;
-  return page(`${m.number} · ${c.name}`, body, { css: CSS });
+  return page(`${m.number} · ${c.name}`, body, { css: CSS, script: opts.pdf ? PDF_SCRIPT : undefined });
 }

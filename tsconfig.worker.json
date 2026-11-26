@@ -32,6 +32,9 @@
     "test/api-client.test.ts",
     "test/labels.test.ts",
     "test/whatsapp.test.ts",
-    "test/keyboard-scroll.test.ts"
+    "test/keyboard-scroll.test.ts",
+    "test/pdf.test.ts",
+    "test/pdf-documents.test.ts",
+    "test/share-pdf.test.ts"
   ]
 }
