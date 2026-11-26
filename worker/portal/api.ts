@@ -6,6 +6,7 @@ import { decideCostChange, listChanges, loadChange } from "../changes/repo";
 import { listProjects } from "../projects/repo";
 import { listMeetings } from "../api/meetings";
 import { todayBogota } from "../../shared/dates";
+import type { DocClient } from "../../shared/docs/model";
 import { approveQuote } from "../quotes/approve";
 import { listQuotes, loadQuote } from "../quotes/repo";
 import { getSettings } from "../settings";
@@ -20,7 +21,7 @@ import { findClientByToken, portalUrl } from "./tokens";
 const PORTAL_QUOTES = ["sent", "approved", "rejected", "expired"] as const;
 export const PORTAL_ACTOR = "cliente (portal)";
 
-/** GET /c/:token y /c/:token/cotizacion/:number */
+/** GET /c/:token, /c/:token/cotizacion/:number y /c/:token/factura/:number (recibo de pago) */
 export async function handlePortalPage(env: Env, token: string, sub: string[]): Promise<Response> {
   const client = await findClientByToken(env.DB, token);
   if (!client) return invalidLinkPage();
@@ -30,14 +31,7 @@ export async function handlePortalPage(env: Env, token: string, sub: string[]): 
   if (sub[0] === "cotizacion" && sub[1]) {
     const quote = quotes.find((q) => q.number === decodeURIComponent(sub[1]));
     if (!quote) return invalidLinkPage();
-    const full = await env.DB.prepare("SELECT name, company, document, city, phone, email FROM clients WHERE id = ?").bind(client.id).first<{
-      name: string;
-      company: string | null;
-      document: string | null;
-      city: string | null;
-      phone: string | null;
-      email: string | null;
-    }>();
+    const full = await env.DB.prepare("SELECT name, company, document, city, phone, email FROM clients WHERE id = ?").bind(client.id).first<DocClient>();
     return renderQuoteDocument({ quote, client: full!, settings, portalUrl: portalUrl(token) });
   }
   if (sub[0] === "factura" && sub[1]) {

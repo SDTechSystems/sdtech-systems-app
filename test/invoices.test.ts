@@ -44,7 +44,7 @@ describe("invoices", () => {
     const { projectId, client } = await billedProject(env);
     const inv = ((await (await issue(env, projectId)).json()) as { invoice: Invoice }).invoice;
     const html = await (await worker.fetch(new Request(`${await portal(env, client.id)}/factura/FAC-0001`), env, ctx)).text();
-    for (const t of ["FACTURA", "FAC-0001", "Cambio aprobado", "$ 535.000", inv.verifyCode, "<svg"]) expect(html).toContain(t);
+    for (const t of ["RECIBO DE PAGO", "FAC-0001", "Cambio aprobado", "$ 535.000", inv.verifyCode, "<svg"]) expect(html).toContain(t);
     const other = await newClient(env, "Bruno Ruiz");
     expect((await worker.fetch(new Request(`${await portal(env, other.id)}/factura/FAC-0001`), env, ctx)).status).toBe(404);
   });

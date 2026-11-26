@@ -7,6 +7,9 @@ import { handleProjects } from "../worker/api/projects";
 import type { Session } from "../worker/auth/session";
 import type { Client, Quote } from "../shared/types";
 import { jsonRequest, makeEnv, OWNER } from "./helpers";
+import { approvedProject } from "./fixtures";
+import { renderDocHtml } from "../worker/portal/doc-html";
+import type { DocModel } from "../shared/docs/model";
 
 type Env = Awaited<ReturnType<typeof makeEnv>>;
 const owner: Session = { email: OWNER, role: "owner" };
@@ -257,5 +260,92 @@ describe("client portal", () => {
     expect(doc).toMatch(/<a [^>]*href="https:\/\/sdtechsystems\.dev\/es\/"[^>]*><img src="\/brand\/logo-color\.svg"/);
     const verify = await (await fetchPortal(env, `${P}/verificar/ABCDEFGHJK`)).text();
     expect(verify).toContain('href="https://sdtechsystems.dev/es/"');
+  });
+
+  it("escapes '</script>' in a client name inside the embedded doc model", async () => {
+    const env = await makeEnv();
+    const name = "Ana</script><img src=x onerror=alert(1)>";
+    const c = await newClient(env, name);
+    await sentQuote(env, c.id);
+    const html = await (await fetchPortal(env, `${await portalUrl(env, c.id)}/cotizacion/COT-0001`)).text();
+    expect(html).not.toContain("</script><img");
+    const json = html.match(/<script type="application\/json" id="doc-model">([\s\S]*?)<\/script>/)?.[1];
+    expect(json).toBeTruthy();
+    const model = JSON.parse(json!) as DocModel;
+    expect(model.party.name).toBe(name);
+    expect(model.number).toBe("COT-0001");
+  });
+
+  it("portal quote and FAC pages still render at their old URLs with the new layout", async () => {
+    const env = await makeEnv();
+    const { client, projectId } = await approvedProject(env);
+    const issued = await handleProjects(jsonRequest("POST", `${B}/projects/${projectId}/invoices`, {}), env, owner, ["projects", projectId, "invoices"]);
+    expect(issued.status).toBe(201);
+    const url = await portalUrl(env, client.id);
+    const quote = await fetchPortal(env, `${url}/cotizacion/COT-0001`);
+    expect(quote.status).toBe(200);
+    const quoteHtml = await quote.text();
+    for (const t of ["COTIZACIÓN", "COT-0001", 'id="doc-model"', "Guardar PDF", "No responsable de IVA"]) expect(quoteHtml).toContain(t);
+    const receipt = await fetchPortal(env, `${url}/factura/FAC-0001`);
+    expect(receipt.status).toBe(200);
+    const html = await receipt.text();
+    for (const t of ["RECIBO DE PAGO", "FAC-0001", 'id="doc-model"', "Guardar PDF", "No responsable de IVA", "Código de verificación"]) expect(html).toContain(t);
+    expect(html).not.toContain("FACTURA");
+  });
+});
+
+describe("unified document page", () => {
+  const model: DocModel = {
+    kind: "collection",
+    title: "CUENTA DE COBRO",
+    number: "CC-0003",
+    issuedOn: "2026-11-26",
+    currency: "COP",
+    voided: true,
+    company: { name: "SD Tech Systems", nit: "901.234.567-8", phone: "+57 305 814 7293", email: "contacto@sdtechsystems.dev", website: "sdtechsystems.dev", taxNote: "No responsable de IVA" },
+    party: { name: "Jennifer", lines: ["Jen Essence", "Medellín"] },
+    from: "SD Tech Systems · NIT 901.234.567-8",
+    intro: { text: "Por los servicios prestados, el valor a pagar es:", amount: 450000, words: "cuatrocientos cincuenta mil pesos" },
+    lines: [{ title: "Kit de marca estándar", detail: "2 propuestas, logo y versiones", quantity: 1, unitPrice: 450000, total: 450000 }],
+    totals: [{ label: "Total", amount: 450000, tone: "grand" }],
+    facts: [{ label: "Fecha acordada de pago", value: "5 de diciembre de 2026" }],
+    payment: { title: "Medios de pago", items: [{ name: "Bre-B", detail: "3058147293 · Davibank" }, { name: "Nequi", detail: "" }] },
+    links: [{ label: "Pagar en línea", url: "https://bold.co/pay/x" }],
+    note: "Nota <b>importante</b>",
+    conditions: ["Condición uno"],
+    thanks: "Gracias por confiar en SD Tech Systems.",
+    footer: { qrUrl: "https://clientes.sdtechsystems.dev/c/abc", qrCaption: "Escanea para ver tu página.", verifyCode: null, verifyUrl: null },
+  };
+  const render = (pdf: boolean) => renderDocHtml(model, { backUrl: "https://clientes.sdtechsystems.dev/c/abc", pdf }).text();
+
+  it("keeps the fixed block order", async () => {
+    const html = await render(false);
+    const body = html.slice(html.indexOf("<article"));
+    const order = ["logo-color.svg", "NIT 901.234.567-8", "CUENTA DE COBRO", "CC-0003", "Para", "Jennifer", "De", "Fecha acordada de pago", "el valor a pagar es", "cuatrocientos cincuenta mil pesos", "Kit de marca estándar", "Total", "Medios de pago", "Pagar en línea", "Nota &lt;b&gt;importante&lt;/b&gt;", "Condición uno", "Gracias por confiar", "<svg", "No responsable de IVA"];
+    let at = -1;
+    for (const t of order) {
+      const i = body.indexOf(t, at + 1);
+      expect(i, t).toBeGreaterThan(at);
+      at = i;
+    }
+    expect(body).toContain("ANULADA");
+    expect(html).toContain('href="https://bold.co/pay/x"');
+  });
+
+  it("labels every table cell so rows can stack on a phone", async () => {
+    const html = await render(false);
+    for (const l of ["Cant.", "Valor unitario", "Total"]) expect(html).toContain(`data-label="${l}"`);
+    expect(html).toMatch(/@media \(max-width:640px\)\{[^}]*\.doc-table thead\{display:none\}/);
+  });
+
+  it("offers Guardar PDF by default and an inert Descargar PDF button when the PDF is ready", async () => {
+    const print = await render(false);
+    expect(print).toContain("Guardar PDF");
+    expect(print).toContain("window.print()");
+    expect(print).not.toContain("download-pdf");
+    const pdf = await render(true);
+    expect(pdf).toContain('id="download-pdf"');
+    expect(pdf).toContain("Descargar PDF");
+    expect(pdf).not.toContain("window.print()");
   });
 });
