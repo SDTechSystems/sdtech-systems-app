@@ -23,7 +23,7 @@ import { findClientByToken, portalUrl } from "./tokens";
 const PORTAL_QUOTES = ["sent", "approved", "rejected", "expired"] as const;
 export const PORTAL_ACTOR = "cliente (portal)";
 
-/** GET /c/:token, /c/:token/cotizacion/:number, /c/:token/cobro/:number y /c/:token/factura/:number (recibo de pago) */
+/** GET /c/:token, /c/:token/cotizacion/:number, /c/:token/cobro/:number y /c/:token/recibo/:number (recibo de pago; /factura/:number sigue sirviendo) */
 export async function handlePortalPage(env: Env, token: string, sub: string[]): Promise<Response> {
   const client = await findClientByToken(env.DB, token);
   if (!client) return invalidLinkPage();
@@ -36,7 +36,7 @@ export async function handlePortalPage(env: Env, token: string, sub: string[]): 
     const full = await env.DB.prepare("SELECT name, company, document, city, phone, email FROM clients WHERE id = ?").bind(client.id).first<DocClient>();
     return renderQuoteDocument({ quote, client: full!, settings, portalUrl: portalUrl(token) });
   }
-  if (sub[0] === "factura" && sub[1]) {
+  if ((sub[0] === "recibo" || sub[0] === "factura") && sub[1]) {
     const inv = await findInvoice(env.DB, "number", decodeURIComponent(sub[1]));
     if (!inv || inv.clientId !== client.id) return invalidLinkPage();
     return renderInvoiceDocument(inv, settings, portalUrl(token));

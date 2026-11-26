@@ -1,6 +1,7 @@
+import { PORTAL_HOST } from "../../shared/docs/model";
 import { now } from "../http";
 
-export const PORTAL_ORIGIN = "https://clientes.sdtechsystems.dev";
+export const PORTAL_ORIGIN = `https://${PORTAL_HOST}`;
 
 /** 32 bytes aleatorios en base64url (43 caracteres). */
 export function newToken(): string {

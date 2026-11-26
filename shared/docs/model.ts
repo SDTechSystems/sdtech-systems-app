@@ -8,6 +8,12 @@ import type { Currency, Invoice, Settings } from "../types";
  */
 export type DocKind = "quote" | "collection" | "receipt";
 
+/** Dominio del portal de clientes; ahí vive la verificación pública (worker/portal/verify.ts). */
+export const PORTAL_HOST = "clientes.sdtechsystems.dev";
+export const VERIFY_PATH = "verificar";
+/** «clientes.sdtechsystems.dev/verificar/CODIGO», como se imprime en el pie del recibo. */
+export const verifyUrl = (code: string): string => `${PORTAL_HOST}/${VERIFY_PATH}/${code}`;
+
 export interface DocLine {
   title: string;
   detail: string;

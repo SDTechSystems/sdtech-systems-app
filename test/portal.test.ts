@@ -276,7 +276,7 @@ describe("client portal", () => {
     expect(model.number).toBe("COT-0001");
   });
 
-  it("portal quote and FAC pages still render at their old URLs with the new layout", async () => {
+  it("portal quote and receipt pages render at their old and new URLs with the new layout", async () => {
     const env = await makeEnv();
     const { client, projectId } = await approvedProject(env);
     const issued = await handleProjects(jsonRequest("POST", `${B}/projects/${projectId}/invoices`, {}), env, owner, ["projects", projectId, "invoices"]);
@@ -286,11 +286,13 @@ describe("client portal", () => {
     expect(quote.status).toBe(200);
     const quoteHtml = await quote.text();
     for (const t of ["COTIZACIÓN", "COT-0001", 'id="doc-model"', "Guardar PDF", "No responsable de IVA"]) expect(quoteHtml).toContain(t);
-    const receipt = await fetchPortal(env, `${url}/factura/FAC-0001`);
-    expect(receipt.status).toBe(200);
-    const html = await receipt.text();
-    for (const t of ["RECIBO DE PAGO", "FAC-0001", 'id="doc-model"', "Guardar PDF", "No responsable de IVA", "Código de verificación"]) expect(html).toContain(t);
-    expect(html).not.toContain("FACTURA");
+    for (const path of ["recibo", "factura"]) {
+      const receipt = await fetchPortal(env, `${url}/${path}/REC-0001`);
+      expect(receipt.status).toBe(200);
+      const html = await receipt.text();
+      for (const t of ["RECIBO DE PAGO", "REC-0001", 'id="doc-model"', "Guardar PDF", "No responsable de IVA", "Código de verificación"]) expect(html).toContain(t);
+      expect(html).not.toContain("FACTURA");
+    }
   });
 });
 

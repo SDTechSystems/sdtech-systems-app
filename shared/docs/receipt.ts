@@ -1,12 +1,16 @@
 import { dayOf, formatLongDate } from "../dates";
+import { formatMoney } from "../money";
 import { methodLabel } from "../payment-methods";
 import type { Invoice, Settings } from "../types";
-import { docCompany, docParty, type DocModel } from "./model";
+import { docCompany, docParty, verifyUrl, type DocModel } from "./model";
 
-const VERIFY_BASE = "clientes.sdtechsystems.dev/verificar/";
-
-/** Recibo de pago (antes «factura»): también los FAC- viejos se titulan «RECIBO DE PAGO». */
+/**
+ * Recibo de pago (antes «factura»): también los FAC- viejos se titulan «RECIBO DE PAGO».
+ * Los FAC- (sin saldo del proyecto) se muestran como se emitieron, con «Saldo» siempre.
+ */
 export function receiptDocModel(inv: Invoice, settings: Settings, portalUrl: string): DocModel {
+  const legacy = inv.projectBalance === null;
+  const balance = Math.max(inv.balance, 0);
   return {
     kind: "receipt",
     title: "RECIBO DE PAGO",
@@ -22,9 +26,13 @@ export function receiptDocModel(inv: Invoice, settings: Settings, portalUrl: str
     totals: [
       { label: "Total", amount: inv.total, tone: "grand" },
       ...inv.payments.map((p) => ({ label: `Pago ${methodLabel(settings.payment.methods, p.method)} · ${formatLongDate(p.paidOn)}`, amount: p.amount, tone: "minus" as const })),
-      { label: "Saldo", amount: Math.max(inv.balance, 0), tone: "balance" },
+      ...(legacy || balance > 0 ? [{ label: "Saldo", amount: balance, tone: "balance" as const }] : []),
     ],
-    facts: [{ label: "Proyecto", value: inv.projectTitle }],
+    facts: [
+      { label: "Proyecto", value: inv.projectTitle },
+      ...(inv.collectionNumber ? [{ label: "Cuenta de cobro", value: inv.collectionNumber }] : []),
+      ...(inv.projectBalance !== null ? [{ label: "Saldo del proyecto", value: formatMoney(Math.max(inv.projectBalance, 0), inv.currency) }] : []),
+    ],
     payment: null,
     links: [],
     note: null,
@@ -35,7 +43,7 @@ export function receiptDocModel(inv: Invoice, settings: Settings, portalUrl: str
       qrUrl: portalUrl,
       qrCaption: "Escanea para ver tu proyecto, tus servicios y tus pagos.",
       verifyCode: inv.verifyCode,
-      verifyUrl: `${VERIFY_BASE}${inv.verifyCode}`,
+      verifyUrl: verifyUrl(inv.verifyCode),
     },
   };
 }

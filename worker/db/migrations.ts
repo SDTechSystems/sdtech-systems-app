@@ -95,6 +95,8 @@ export const MIGRATIONS: Migration[] = [
       `CREATE TABLE IF NOT EXISTS collection_plans (collection_id TEXT NOT NULL, plan_id TEXT NOT NULL, PRIMARY KEY (collection_id, plan_id))`,
       `CREATE INDEX IF NOT EXISTS idx_collections_project ON collections (project_id)`,
       `CREATE INDEX IF NOT EXISTS idx_collections_client ON collections (client_id)`,
+      `ALTER TABLE invoices ADD COLUMN collection_id TEXT`,
+      `ALTER TABLE invoices ADD COLUMN drive_file_id TEXT`,
     ],
   },
 ];

@@ -265,6 +265,7 @@ export interface InvoiceLine {
   total: number;
 }
 
+/** Recibo de pago (antes «factura»): REC-… los nuevos; los FAC-… viejos conservan su número. */
 export interface Invoice {
   id: string;
   number: string;
@@ -280,6 +281,12 @@ export interface Invoice {
   projectTitle: string;
   lines: InvoiceLine[];
   payments: { paidOn: string; method: PaymentMethod; amount: number }[];
+  /** Los pagos que cubre este recibo ([] en los FAC- viejos). */
+  paymentIds: string[];
+  /** Saldo del proyecto al emitir (null en los FAC- viejos). */
+  projectBalance: number | null;
+  collectionId: string | null;
+  collectionNumber: string | null;
   client: { name: string; company: string | null; document: string | null; city: string | null; phone: string | null; email: string | null };
 }
 

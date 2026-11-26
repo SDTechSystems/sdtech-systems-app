@@ -23,8 +23,7 @@ import { error } from "./http";
 import { syncCalendar } from "./google/sync";
 import { handlePortalApi, handlePortalPage } from "./portal/api";
 import { homePage } from "./portal/html";
-
-const PORTAL_HOST = "clientes.sdtechsystems.dev";
+import { PORTAL_HOST, VERIFY_PATH } from "../shared/docs/model";
 
 const ADMIN: Record<string, Handler> = {
   me: handleMe,
@@ -94,7 +93,7 @@ export default {
 async function handlePortalHost(request: Request, env: Env, url: URL, ctx: ExecutionContext): Promise<Response> {
   const p = url.pathname;
   if (p.startsWith("/brand/") || p.startsWith("/fonts/") || p === "/favicon.ico") return env.ASSETS.fetch(request);
-  const isPortal = p.startsWith("/c/") || p.startsWith("/api/portal/") || p.startsWith("/verificar/");
+  const isPortal = p.startsWith("/c/") || p.startsWith("/api/portal/") || p.startsWith(`/${VERIFY_PATH}/`);
   if (!isPortal) return p.startsWith("/api/") ? error(404, "not_found") : homePage();
 
   if (env.PORTAL_LIMIT) {
@@ -104,7 +103,7 @@ async function handlePortalHost(request: Request, env: Env, url: URL, ctx: Execu
   }
   await ensureSchema(env.DB);
   const parts = p.split("/").filter(Boolean);
-  if (parts[0] === "verificar") return request.method === "GET" ? renderVerify(env.DB, (parts[1] ?? "").toUpperCase()) : error(405, "method_not_allowed");
+  if (parts[0] === VERIFY_PATH) return request.method === "GET" ? renderVerify(env.DB, (parts[1] ?? "").toUpperCase()) : error(405, "method_not_allowed");
   if (parts[0] === "api") {
     const response = await handlePortalApi(request, env, parts.slice(2));
     if (response.ok) ctx.waitUntil?.(syncCalendar(env).catch(() => undefined));

@@ -23,7 +23,8 @@ interface Row {
  * Pagado = pagos registrados desde la cuenta, o contra una promesa enlazada desde que se emitió
  * (lo abonado antes ya se descontó del valor de la línea). Una sola suma con OR: cada pago cuenta una vez.
  */
-const PAID = `(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.collection_id = c.id OR (p.created_at >= c.created_at AND p.plan_id IN (SELECT cp.plan_id FROM collection_plans cp WHERE cp.collection_id = c.id)))`;
+const COUNTS = `p.collection_id = c.id OR (p.created_at >= c.created_at AND p.plan_id IN (SELECT cp.plan_id FROM collection_plans cp WHERE cp.collection_id = c.id))`;
+const PAID = `(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE ${COUNTS})`;
 
 const SELECT = `SELECT c.id, c.number, c.project_id, c.client_id, c.issued_at, c.currency, c.total, c.due_date, c.snapshot, c.drive_file_id, c.voided_at,
   (SELECT GROUP_CONCAT(cp.plan_id) FROM collection_plans cp WHERE cp.collection_id = c.id) AS plan_ids, ${PAID} AS paid FROM collections c`;
@@ -65,6 +66,12 @@ export async function loadCollection(db: D1Database, by: "id" | "number", value:
 export async function collectionPaid(db: D1Database, id: string): Promise<number> {
   const r = await db.prepare(`SELECT ${PAID} AS paid FROM collections c WHERE c.id = ?`).bind(id).first<{ paid: number }>();
   return r?.paid ?? 0;
+}
+
+/** Los pagos que cuentan para la cuenta (los mismos que suma `paid`), del más viejo al más nuevo. */
+export async function collectionPaymentIds(db: D1Database, id: string): Promise<string[]> {
+  const { results } = await db.prepare(`SELECT p.id FROM collections c JOIN payments p ON (${COUNTS}) WHERE c.id = ? ORDER BY p.paid_on, p.created_at`).bind(id).all<{ id: string }>();
+  return results.map((r) => r.id);
 }
 
 /** La cuenta no anulada y sin pagar que ya cobra esta promesa, si la hay. */

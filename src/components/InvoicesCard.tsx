@@ -28,26 +28,26 @@ export function InvoicesCard({ projectId, client }: { projectId: string; client:
   const open = async (inv: Invoice) => {
     const tab = window.open("about:blank", "_blank");
     const url = await getPortalUrl(client.id);
-    if (tab) tab.location.href = `${url}/factura/${inv.number}`;
+    if (tab) tab.location.href = `${url}/recibo/${inv.number}`;
   };
   const send = async (inv: Invoice) => {
     const tab = client.phone ? window.open("about:blank", "_blank") : null;
     const url = await getPortalUrl(client.id);
-    if (!openWhatsApp(client.phone, `Hola ${firstName(client.name)}, te comparto la factura ${inv.number}: ${url}/factura/${inv.number}`, tab)) toast.success("El cliente no tiene WhatsApp: copiamos el mensaje.");
+    if (!openWhatsApp(client.phone, `Hola ${firstName(client.name)}, te comparto el recibo de pago ${inv.number}: ${url}/recibo/${inv.number}`, tab)) toast.success("El cliente no tiene WhatsApp: copiamos el mensaje.");
   };
   return (
     <Card>
       <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
-          <FileCheck2 className="h-4 w-4" /> Facturas
+          <FileCheck2 className="h-4 w-4" /> Recibos de pago
         </CardTitle>
         <Button
           size="sm"
           variant="outline"
           disabled={call.isPending}
-          onClick={() => confirm("Se guardará una copia de cómo está el proyecto hoy: ítems, cambios aprobados y pagos. ¿Emitir la factura?") && call.mutate({ path: `/api/admin/projects/${projectId}/invoices` })}
+          onClick={() => confirm("Se guardará una copia de cómo está el proyecto hoy: ítems, cambios aprobados y los pagos que aún no tienen recibo. ¿Emitir el recibo?") && call.mutate({ path: `/api/admin/projects/${projectId}/invoices` })}
         >
-          Emitir factura
+          Emitir recibo
         </Button>
       </CardHeader>
       <CardContent className="divide-y">
@@ -82,7 +82,7 @@ export function InvoicesCard({ projectId, client }: { projectId: string; client:
             </div>
           ))
         ) : (
-          <p className="py-2 text-sm text-muted-foreground">Cuando termines el proyecto, emite la factura final: incluye la cotización, los cambios aprobados, los pagos y el saldo.</p>
+          <p className="py-2 text-sm text-muted-foreground">Cuando el cliente pague, emite el recibo de pago: incluye lo cobrado, los pagos que lo cubren y el saldo del proyecto.</p>
         )}
       </CardContent>
     </Card>

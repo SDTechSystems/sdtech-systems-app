@@ -37,6 +37,7 @@ const ERRORS: Record<string, string> = {
   title_required: "Escribe el nombre del proyecto",
   cannot_remove_owner: "No se puede quitar al dueño",
   forbidden: "No tienes permiso para esto",
+  lines_required: "No hay nada que cobrar todavía: agrega al menos una línea",
 };
 
 export function errorMessage(e: unknown): string {
@@ -107,8 +108,8 @@ const ACTIVITY: Record<string, string> = {
   adjustment_resolved: "Marcó un ajuste como hecho",
   delivery_released: "Liberó la entrega",
   delivery_withdrawn: "Retiró la entrega",
-  invoice_issued: "Emitió una factura",
-  invoice_voided: "Anuló una factura",
+  invoice_issued: "Emitió un recibo de pago",
+  invoice_voided: "Anuló un recibo de pago",
   collection_issued: "Emitió una cuenta de cobro",
   collection_voided: "Anuló una cuenta de cobro",
   collection_total: "Cambió el total con una cuenta de cobro",

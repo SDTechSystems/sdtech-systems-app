@@ -2,11 +2,11 @@ import { isDate } from "../../shared/dates";
 import type { CollectionLineInput, CollectionLineSource, Currency, InvoiceLine } from "../../shared/types";
 import { logActivity } from "../activity";
 import { requireRole, type Handler } from "../auth/session";
+import { priceLines } from "../collections/lines";
 import { listCollections, loadCollection, openCollectionOfPlan, type CollectionSnapshot } from "../collections/repo";
 import { error, json, now, readJson } from "../http";
 import { formatNumber, getSettings, nextNumber } from "../settings";
 
-const SOURCES: CollectionLineSource[] = ["balance", "advance", "plan", "quote", "change", "catalog", "free"];
 /** Trabajo nuevo: lo único que «Sumar al total del proyecto» agrega. */
 const NEW_WORK: CollectionLineSource[] = ["catalog", "free"];
 
@@ -19,15 +19,6 @@ interface CollectionInput {
   addToTotal?: boolean;
   setTotal?: boolean;
 }
-
-const validLine = (l: CollectionLineInput): boolean =>
-  !!l &&
-  SOURCES.includes(l.source) &&
-  typeof l.title === "string" &&
-  !!l.title.trim() &&
-  (l.detail === undefined || typeof l.detail === "string") &&
-  // En una línea de promesa el servidor pone cantidad y valor.
-  (l.source === "plan" || (Number.isInteger(l.quantity) && l.quantity >= 1 && Number.isInteger(l.unitPrice) && l.unitPrice >= 0));
 
 const sum = (lines: InvoiceLine[]) => lines.reduce((s, l) => s + l.total, 0);
 
@@ -51,38 +42,18 @@ export const handleProjectCollections: Handler = async (request, env, session, p
 
   const body = await readJson<CollectionInput>(request);
   if (body instanceof Response) return body;
-  if (!Array.isArray(body.lines) || !body.lines.length) return error(400, "lines_required");
-  if (!body.lines.every(validLine)) return error(400, "invalid_line");
-
-  const plans = new Map(
-    (
-      await db
-        .prepare("SELECT pp.id, pp.amount, pp.paid_at, (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE plan_id = pp.id) AS paid FROM payment_plans pp WHERE pp.project_id = ?")
-        .bind(projectId)
-        .all<{ id: string; amount: number; paid_at: string | null; paid: number }>()
-    ).results.map((p) => [p.id, p]),
-  );
-  const planIds: string[] = [];
-  const lines: InvoiceLine[] = [];
-  const nonPlan: InvoiceLine[] = [];
-  const newWork: InvoiceLine[] = [];
-  for (const l of body.lines) {
-    const title = l.title.trim();
-    const detail = l.detail?.trim() ?? "";
-    if (l.source === "plan") {
-      const plan = typeof l.planId === "string" ? plans.get(l.planId) : undefined;
-      const open = plan && !plan.paid_at ? plan.amount - plan.paid : 0;
-      if (!plan || open <= 0 || planIds.includes(plan.id)) return error(400, "invalid_plan");
-      if (await openCollectionOfPlan(db, plan.id)) return error(400, "plan_already_billed");
-      planIds.push(plan.id);
-      lines.push({ title, detail, quantity: 1, unitPrice: open, total: open });
-      continue;
-    }
-    const line = { title, detail, quantity: l.quantity, unitPrice: l.unitPrice, total: l.quantity * l.unitPrice };
-    lines.push(line);
-    nonPlan.push(line);
-    if (NEW_WORK.includes(l.source)) newWork.push(line);
-  }
+  // Una promesa se cobra por lo que le falta, y en una sola cuenta abierta a la vez.
+  const priced = await priceLines(db, projectId, body.lines, async (plan) => {
+    const open = plan.paid_at ? 0 : plan.amount - plan.paid;
+    if (open <= 0) return error(400, "invalid_plan");
+    if (await openCollectionOfPlan(db, plan.id)) return error(400, "plan_already_billed");
+    return open;
+  });
+  if (priced instanceof Response) return priced;
+  const planIds = priced.flatMap((p) => (p.planId ? [p.planId] : []));
+  const lines = priced.map((p) => p.line);
+  const nonPlan = priced.filter((p) => !p.planId).map((p) => p.line);
+  const newWork = priced.filter((p) => NEW_WORK.includes(p.source)).map((p) => p.line);
 
   const dueDate = body.dueDate || null;
   if (dueDate !== null && !isDate(dueDate)) return error(400, "invalid_date");

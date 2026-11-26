@@ -239,11 +239,11 @@ export function renderPortal(d: PortalData): Response {
     d.quotes.length ? { title: "Tus cotizaciones", html: d.quotes.map((q) => quoteCard(q, d.token)).join("") } : null,
     d.invoices.length
       ? {
-          title: "Tus facturas",
+          title: "Recibos de pago",
           html: d.invoices
             .map(
               (i) =>
-                `<div class="card"><div class="row"><div><strong>${esc(i.number)}</strong><div class="muted">${esc(i.projectTitle)} · ${esc(formatLongDate(dayOf(i.issuedAt)))}</div></div><span class="badge${i.voided ? " off" : " ok"}">${i.voided ? "Anulada" : "Emitida"}</span></div><div class="row" style="margin-top:8px;align-items:center"><span class="amount">${esc(formatMoney(i.total, i.currency))}</span><a class="btn link" href="/c/${esc(d.token)}/factura/${esc(i.number)}">Ver factura</a></div></div>`,
+                `<div class="card"><div class="row"><div><strong>${esc(i.number)}</strong><div class="muted">${esc(i.projectTitle)} · ${esc(formatLongDate(dayOf(i.issuedAt)))}</div></div><span class="badge${i.voided ? " off" : " ok"}">${i.voided ? "Anulada" : "Emitida"}</span></div><div class="row" style="margin-top:8px;align-items:center"><span class="amount">${esc(formatMoney(i.total, i.currency))}</span><a class="btn link" href="/c/${esc(d.token)}/recibo/${esc(i.number)}">Ver recibo</a></div></div>`,
             )
             .join(""),
         }

@@ -54,7 +54,7 @@ describe("nextNumber", () => {
     expect(await nextNumber(env.DB, "quote")).toBe(2);
     const [a, b] = await Promise.all([nextNumber(env.DB, "quote"), nextNumber(env.DB, "quote")]);
     expect(new Set([a, b]).size).toBe(2);
-    expect(await nextNumber(env.DB, "invoice")).toBe(1);
+    expect(await nextNumber(env.DB, "receipt")).toBe(1);
   });
 
   it("defaults include NIT, tax note and the five payment methods", async () => {

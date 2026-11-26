@@ -50,6 +50,10 @@ const invoice = (number: string): Invoice => ({
   projectTitle: "Web Jen Essence",
   lines: [{ title: "Landing page", detail: "", quantity: 1, unitPrice: 920000, total: 920000 }],
   payments: [{ paidOn: "2026-11-25", method: "breb", amount: 385000 }],
+  paymentIds: [],
+  projectBalance: null,
+  collectionId: null,
+  collectionNumber: null,
   client,
 });
 
@@ -112,5 +116,37 @@ describe("document model", () => {
     expect(m.footer).toMatchObject({ qrUrl: PORTAL, verifyCode: "ABCDEFGHJK", verifyUrl: "clientes.sdtechsystems.dev/verificar/ABCDEFGHJK" });
     expect(m.company.taxNote).toBe("No responsable de IVA");
     expect(m.smallPrint).toBeNull();
+  });
+
+  it("receipt model shows the project balance and the collection it comes from, and hides a zero balance", () => {
+    const m = receiptDocModel(
+      { ...invoice("REC-0001"), total: 225000, paid: 225000, balance: 0, payments: [{ paidOn: "2026-11-26", method: "nequi", amount: 225000 }], projectBalance: 225000, collectionId: "c1", collectionNumber: "CC-0001" },
+      DEFAULT_SETTINGS,
+      PORTAL,
+    );
+    expect(m.totals).toEqual([
+      { label: "Total", amount: 225000, tone: "grand" },
+      { label: "Pago Nequi · 26 de noviembre de 2026", amount: 225000, tone: "minus" },
+    ]);
+    expect(m.facts).toEqual([
+      { label: "Proyecto", value: "Web Jen Essence" },
+      { label: "Cuenta de cobro", value: "CC-0001" },
+      { label: "Saldo del proyecto", value: "$ 225.000" },
+    ]);
+  });
+
+  it("receipt model shows a REC- balance above zero and never a negative project balance", () => {
+    const m = receiptDocModel({ ...invoice("REC-0002"), projectBalance: -120000 }, DEFAULT_SETTINGS, PORTAL);
+    expect(m.totals.at(-1)).toEqual({ label: "Saldo", amount: 535000, tone: "balance" });
+    expect(m.facts).toEqual([
+      { label: "Proyecto", value: "Web Jen Essence" },
+      { label: "Saldo del proyecto", value: "$ 0" },
+    ]);
+  });
+
+  it("receipt model keeps an old FAC- as it was issued, zero balance included", () => {
+    const m = receiptDocModel({ ...invoice("FAC-0002"), paid: 920000, balance: 0 }, DEFAULT_SETTINGS, PORTAL);
+    expect(m.totals.at(-1)).toEqual({ label: "Saldo", amount: 0, tone: "balance" });
+    expect(m.facts).toEqual([{ label: "Proyecto", value: "Web Jen Essence" }]);
   });
 });

@@ -88,7 +88,7 @@ export default function Settings() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Exportar</CardTitle>
-          <CardDescription>Descarga todos tus datos (clientes, cotizaciones, proyectos, pagos, suscripciones y facturas) en un archivo. Guárdalo como copia de seguridad.</CardDescription>
+          <CardDescription>Descarga todos tus datos (clientes, cotizaciones, proyectos, pagos, suscripciones y recibos) en un archivo. Guárdalo como copia de seguridad.</CardDescription>
         </CardHeader>
         <CardContent>
           <Button variant="outline" asChild>

@@ -13,12 +13,16 @@ interface Row {
   balance: number;
   verify_code: string;
   voided_at: string | null;
+  collection_id: string | null;
 }
 
-const COLUMNS = "id, number, project_id, client_id, issued_at, currency, snapshot, total, paid, balance, verify_code, voided_at";
+/** Lo que se congela al emitir. Los FAC- viejos solo tienen lines, payments, projectTitle y client. */
+export type InvoiceSnapshot = Pick<Invoice, "lines" | "payments" | "paymentIds" | "collectionNumber" | "projectBalance" | "projectTitle" | "client">;
+
+const COLUMNS = "id, number, project_id, client_id, issued_at, currency, snapshot, total, paid, balance, verify_code, voided_at, collection_id";
 
 const toInvoice = (r: Row): Invoice => {
-  const snap = JSON.parse(r.snapshot) as Pick<Invoice, "lines" | "payments" | "projectTitle" | "client">;
+  const snap = JSON.parse(r.snapshot) as Partial<InvoiceSnapshot> & Pick<InvoiceSnapshot, "lines" | "payments" | "projectTitle" | "client">;
   return {
     id: r.id,
     number: r.number,
@@ -31,7 +35,14 @@ const toInvoice = (r: Row): Invoice => {
     balance: r.balance,
     verifyCode: r.verify_code,
     voided: !!r.voided_at,
-    ...snap,
+    lines: snap.lines,
+    payments: snap.payments,
+    paymentIds: snap.paymentIds ?? [],
+    projectBalance: snap.projectBalance ?? null,
+    collectionId: r.collection_id,
+    collectionNumber: snap.collectionNumber ?? null,
+    projectTitle: snap.projectTitle,
+    client: snap.client,
   };
 };
 
@@ -44,6 +55,11 @@ export async function listInvoices(db: D1Database, filter: { projectId?: string;
 export async function findInvoice(db: D1Database, by: "id" | "number" | "verify_code", value: string): Promise<Invoice | null> {
   const r = await db.prepare(`SELECT ${COLUMNS} FROM invoices WHERE ${by} = ?`).bind(value).first<Row>();
   return r ? toInvoice(r) : null;
+}
+
+/** Pagos del proyecto que ya muestra un recibo no anulado (los FAC- viejos no guardaron cuáles: no cubren ninguno). */
+export async function coveredPaymentIds(db: D1Database, projectId: string): Promise<Set<string>> {
+  return new Set((await listInvoices(db, { projectId })).filter((i) => !i.voided).flatMap((i) => i.paymentIds));
 }
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
