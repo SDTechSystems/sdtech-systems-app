@@ -18,11 +18,11 @@ const shortName = (name: string) => {
 export async function renderVerify(db: D1Database, code: string): Promise<Response> {
   const inv = /^[A-Z0-9]{10}$/.test(code) ? await findInvoice(db, "verify_code", code) : null;
   if (!inv) {
-    return page("Verificación de recibo", `<main>${brandLogo("white")}<div class="card"><span class="status bad">NO ENCONTRADA</span><p>No encontramos este recibo. Revisa el código o escríbenos.</p></div></main>`, { css: CSS, status: 404 });
+    return page("Verificación de recibo", `<main>${brandLogo("white")}<div class="card"><span class="status bad">NO ENCONTRADO</span><p>No encontramos este recibo. Revisa el código o escríbenos.</p></div></main>`, { css: CSS, status: 404 });
   }
   const body = `<main>${brandLogo("white")}<p class="eyebrow" style="margin-top:22px">Verificación de recibo</p>
-<div class="card"><span class="status ${inv.voided ? "bad" : "ok"}">${inv.voided ? "Anulada" : "Válida"}</span>
-<dl><dt>Recibo</dt><dd>${esc(inv.number)}</dd><dt>Emitida</dt><dd>${esc(formatLongDate(dayOf(inv.issuedAt)))}</dd><dt>Cliente</dt><dd>${esc(shortName(inv.client.name))}</dd><dt>Total</dt><dd>${esc(formatMoney(inv.total, inv.currency))}</dd></dl></div>
-<p>Emitida por SD Tech Systems · sdtechsystems.dev</p></main>`;
+<div class="card"><span class="status ${inv.voided ? "bad" : "ok"}">${inv.voided ? "Anulado" : "Válido"}</span>
+<dl><dt>Recibo</dt><dd>${esc(inv.number)}</dd><dt>Emitido</dt><dd>${esc(formatLongDate(dayOf(inv.issuedAt)))}</dd><dt>Cliente</dt><dd>${esc(shortName(inv.client.name))}</dd><dt>Total</dt><dd>${esc(formatMoney(inv.total, inv.currency))}</dd></dl></div>
+<p>Emitido por SD Tech Systems · sdtechsystems.dev</p></main>`;
   return page(`${inv.number} · Verificación`, body, { css: CSS });
 }

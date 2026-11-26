@@ -135,13 +135,22 @@ describe("document model", () => {
     ]);
   });
 
-  it("receipt model shows a REC- balance above zero and never a negative project balance", () => {
+  it("receipt model never shows a per-document Saldo on a REC-, and never a negative project balance", () => {
     const m = receiptDocModel({ ...invoice("REC-0002"), projectBalance: -120000 }, DEFAULT_SETTINGS, PORTAL);
-    expect(m.totals.at(-1)).toEqual({ label: "Saldo", amount: 535000, tone: "balance" });
+    expect(m.totals).toEqual([
+      { label: "Total", amount: 920000, tone: "grand" },
+      { label: "Pago Bre-B · 25 de noviembre de 2026", amount: 385000, tone: "minus" },
+    ]);
     expect(m.facts).toEqual([
       { label: "Proyecto", value: "Web Jen Essence" },
       { label: "Saldo del proyecto", value: "$ 0" },
     ]);
+  });
+
+  it("receipt model omits the project balance of a REC- for a project with no total", () => {
+    const m = receiptDocModel({ ...invoice("REC-0003"), projectBalance: null }, DEFAULT_SETTINGS, PORTAL);
+    expect(m.facts).toEqual([{ label: "Proyecto", value: "Web Jen Essence" }]);
+    expect(m.totals.map((t) => t.label)).toEqual(["Total", "Pago Bre-B · 25 de noviembre de 2026"]);
   });
 
   it("receipt model keeps an old FAC- as it was issued, zero balance included", () => {

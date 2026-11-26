@@ -336,6 +336,18 @@ describe("unified document page", () => {
     expect(html).toContain('href="https://bold.co/pay/x"');
   });
 
+  it("uses masculine forms for a receipt and feminine ones for a quote or collection", async () => {
+    const receipt = await renderDocHtml({ ...model, kind: "receipt" }, { backUrl: "https://clientes.sdtechsystems.dev/c/abc", pdf: false }).text();
+    expect(receipt).toContain(`<div class="void">ANULADO</div>`);
+    expect(receipt).toContain("Emitido: 26 de noviembre de 2026");
+    expect(receipt).not.toMatch(/ANULADA|Emitida/);
+    for (const kind of ["collection", "quote"] as const) {
+      const html = await renderDocHtml({ ...model, kind }, { backUrl: "https://clientes.sdtechsystems.dev/c/abc", pdf: false }).text();
+      expect(html).toContain(`<div class="void">ANULADA</div>`);
+      expect(html).toContain("Emitida: 26 de noviembre de 2026");
+    }
+  });
+
   it("labels every table cell so rows can stack on a phone", async () => {
     const html = await render(false);
     for (const l of ["Cant.", "Valor unitario", "Total"]) expect(html).toContain(`data-label="${l}"`);

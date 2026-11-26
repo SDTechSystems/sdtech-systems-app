@@ -6,11 +6,11 @@ import { docCompany, docParty, verifyUrl, type DocModel } from "./model";
 
 /**
  * Recibo de pago (antes «factura»): también los FAC- viejos se titulan «RECIBO DE PAGO».
- * Los FAC- (sin saldo del proyecto) se muestran como se emitieron, con «Saldo» siempre.
+ * Un REC- muestra su total y los pagos que lo cubren; lo que falta se lee en «Saldo del proyecto»
+ * (sin él si el proyecto no tiene total). Los FAC- se muestran como se emitieron, con su «Saldo».
  */
 export function receiptDocModel(inv: Invoice, settings: Settings, portalUrl: string): DocModel {
-  const legacy = inv.projectBalance === null;
-  const balance = Math.max(inv.balance, 0);
+  const legacy = inv.number.startsWith("FAC-");
   return {
     kind: "receipt",
     title: "RECIBO DE PAGO",
@@ -26,12 +26,12 @@ export function receiptDocModel(inv: Invoice, settings: Settings, portalUrl: str
     totals: [
       { label: "Total", amount: inv.total, tone: "grand" },
       ...inv.payments.map((p) => ({ label: `Pago ${methodLabel(settings.payment.methods, p.method)} · ${formatLongDate(p.paidOn)}`, amount: p.amount, tone: "minus" as const })),
-      ...(legacy || balance > 0 ? [{ label: "Saldo", amount: balance, tone: "balance" as const }] : []),
+      ...(legacy ? [{ label: "Saldo", amount: Math.max(inv.balance, 0), tone: "balance" as const }] : []),
     ],
     facts: [
       { label: "Proyecto", value: inv.projectTitle },
       ...(inv.collectionNumber ? [{ label: "Cuenta de cobro", value: inv.collectionNumber }] : []),
-      ...(inv.projectBalance !== null ? [{ label: "Saldo del proyecto", value: formatMoney(Math.max(inv.projectBalance, 0), inv.currency) }] : []),
+      ...(!legacy && inv.projectBalance !== null ? [{ label: "Saldo del proyecto", value: formatMoney(Math.max(inv.projectBalance, 0), inv.currency) }] : []),
     ],
     payment: null,
     links: [],

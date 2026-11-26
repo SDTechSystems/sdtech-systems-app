@@ -283,7 +283,7 @@ export interface Invoice {
   payments: { paidOn: string; method: PaymentMethod; amount: number }[];
   /** Los pagos que cubre este recibo ([] en los FAC- viejos). */
   paymentIds: string[];
-  /** Saldo del proyecto al emitir (null en los FAC- viejos). */
+  /** Saldo del proyecto al emitir (null en los FAC- viejos y si el proyecto no tenía total). */
   projectBalance: number | null;
   collectionId: string | null;
   collectionNumber: string | null;

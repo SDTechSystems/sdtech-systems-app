@@ -56,6 +56,7 @@ export const handleProjectInvoices: Handler = async (request, env, session, path
   if (body.collectionId) {
     collection = typeof body.collectionId === "string" ? await loadCollection(db, "id", body.collectionId) : null;
     if (!collection || collection.projectId !== projectId || collection.status === "voided") return error(400, "invalid_collection");
+    if (collection.paid <= 0) return error(409, "nothing_paid");
   }
 
   let lines: InvoiceLine[];
@@ -76,11 +77,11 @@ export const handleProjectInvoices: Handler = async (request, env, session, path
     const given = body.paymentIds;
     if (!Array.isArray(given) || new Set(given).size !== given.length || !given.every((id) => typeof id === "string" && own.has(id))) return error(400, "invalid_payment");
     ids = new Set(given as string[]);
-  } else if (collection) {
-    ids = new Set(await collectionPaymentIds(db, collection.id));
   } else {
+    // Por defecto, los pagos que aún no muestra otro recibo no anulado: de la cuenta, o del proyecto.
     const covered = await coveredPaymentIds(db, projectId);
-    ids = new Set(pay.payments.filter((p) => !covered.has(p.id)).map((p) => p.id));
+    const pool = collection ? await collectionPaymentIds(db, collection.id) : pay.payments.map((p) => p.id);
+    ids = new Set(pool.filter((id) => !covered.has(id)));
   }
   // Del más viejo al más nuevo, como se imprimen.
   const chosen = pay.payments.filter((p) => ids.has(p.id)).reverse();
@@ -91,7 +92,8 @@ export const handleProjectInvoices: Handler = async (request, env, session, path
     payments: chosen.map((p) => ({ paidOn: p.paidOn, method: p.method, amount: p.amount })),
     paymentIds: chosen.map((p) => p.id),
     collectionNumber: collection?.number ?? null,
-    projectBalance: pay.balance,
+    // Sin total (ni cambios aprobados) no hay saldo que mostrar.
+    projectBalance: pay.total > 0 ? pay.balance : null,
     projectTitle: project.title,
     client: client!,
   };

@@ -38,6 +38,7 @@ const ERRORS: Record<string, string> = {
   cannot_remove_owner: "No se puede quitar al dueño",
   forbidden: "No tienes permiso para esto",
   lines_required: "No hay nada que cobrar todavía: agrega al menos una línea",
+  nothing_paid: "Esa cuenta de cobro aún no tiene pagos: registra el pago antes de emitir el recibo",
 };
 
 export function errorMessage(e: unknown): string {

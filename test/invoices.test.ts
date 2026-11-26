@@ -62,11 +62,16 @@ describe("invoices", () => {
     const url = await portal(env, client.id);
     for (const path of ["recibo", "factura"]) {
       const html = await (await worker.fetch(new Request(`${url}/${path}/REC-0001`), env, ctx)).text();
-      for (const t of ["RECIBO DE PAGO", "REC-0001", "Cambio aprobado", "$ 535.000", "Saldo del proyecto", inv.verifyCode, "<svg"]) expect(html).toContain(t);
+      for (const t of ["RECIBO DE PAGO", "REC-0001", "Cambio aprobado", "Saldo del proyecto: $ 535.000", "Emitido: ", inv.verifyCode, "<svg"]) expect(html).toContain(t);
+      expect(html).not.toContain("Emitida");
     }
     const home = await (await worker.fetch(new Request(url), env, ctx)).text();
     expect(home).toContain("Recibos de pago");
     expect(home).toContain(`/recibo/REC-0001`);
+    expect(home).toContain(`<span class="badge ok">Emitido</span>`);
+    await handleInvoices(jsonRequest("POST", `${B}/invoices/${inv.id}/void`, {}), env, owner, ["invoices", inv.id, "void"]);
+    expect(await (await worker.fetch(new Request(url), env, ctx)).text()).toContain(`<span class="badge off">Anulado</span>`);
+    expect(await (await worker.fetch(new Request(`${url}/recibo/REC-0001`), env, ctx)).text()).toContain(`<div class="void">ANULADO</div>`);
     expect(home).not.toMatch(/factura/i);
     const other = await newClient(env, "Bruno Ruiz");
     for (const path of ["recibo", "factura"]) expect((await worker.fetch(new Request(`${await portal(env, other.id)}/${path}/REC-0001`), env, ctx)).status).toBe(404);
@@ -82,17 +87,19 @@ describe("invoices", () => {
     expect(html).toContain("Verificación de recibo");
     expect(html).not.toMatch(/factura/i);
     expect(r.headers.get("x-robots-tag")).toContain("noindex");
-    expect(html).toContain("Válida");
-    expect(html).toContain("María G.");
+    for (const t of ["Válido", "<dt>Emitido</dt>", "Emitido por SD Tech Systems", "María G."]) expect(html).toContain(t);
+    expect(html).not.toMatch(/Válida|Emitida/);
     expect(html).not.toContain("/c/");
     expect(html).not.toContain("3058147293");
     await handleInvoices(jsonRequest("POST", `${B}/invoices/${inv.id}/void`, {}), env, owner, ["invoices", inv.id, "void"]);
     html = await (await worker.fetch(new Request(`${P}/verificar/${inv.verifyCode}`), env, ctx)).text();
-    expect(html).toContain("Anulada");
+    expect(html).toContain("Anulado");
+    expect(html).not.toContain("Anulada");
     r = await worker.fetch(new Request(`${P}/verificar/ABCDEFGHJK`), env, ctx);
     expect(r.status).toBe(404);
     html = await r.text();
     expect(html).toContain("No encontramos este recibo. Revisa el código o escríbenos.");
+    expect(html).toContain("NO ENCONTRADO<");
     expect(html).not.toMatch(/factura/i);
   });
 
@@ -120,7 +127,7 @@ describe("invoices", () => {
     const { projectId } = await manualProject(env);
     await pay(env, projectId, { amount: 120000 });
     const inv = await issued(env, projectId, { lines: [free("Diseño de logo", 120000)] });
-    expect(inv).toMatchObject({ number: "REC-0001", total: 120000, paid: 120000, balance: 0 });
+    expect(inv).toMatchObject({ number: "REC-0001", total: 120000, paid: 120000, balance: 0, projectBalance: null });
     expect(inv.lines).toEqual([{ title: "Diseño de logo", detail: "", quantity: 1, unitPrice: 120000, total: 120000 }]);
   });
 
@@ -133,11 +140,15 @@ describe("invoices", () => {
 
   it("defaults to payments not already in another receipt", async () => {
     const env = await makeEnv();
-    const { projectId } = await billedProject(env);
+    const { projectId, client } = await billedProject(env);
     const first = await issued(env, projectId);
     const s = await pay(env, projectId, { amount: 100000, method: "nequi" });
     const second = await issued(env, projectId);
+    // La columna balance se guarda (total − pagado), pero el documento solo muestra el saldo del proyecto.
     expect(second).toMatchObject({ number: "REC-0002", total: 920000, paid: 100000, balance: 820000, projectBalance: 435000 });
+    const doc = await (await worker.fetch(new Request(`${await portal(env, client.id)}/recibo/REC-0002`), env, ctx)).text();
+    expect(doc).toContain("Saldo del proyecto: $ 435.000");
+    expect(doc).not.toContain("820.000");
     expect(second.paymentIds).toEqual([s.payments[0].id]);
     expect(first.paymentIds).toEqual([s.payments[1].id]);
     await handleInvoices(jsonRequest("POST", `${B}/invoices/${first.id}/void`, {}), env, owner, ["invoices", first.id, "void"]);
@@ -192,7 +203,7 @@ describe("invoices", () => {
     const r = await worker.fetch(new Request(`${P}/verificar/OLDFACCODE`), env, ctx);
     const html = await r.text();
     expect(r.status).toBe(200);
-    for (const t of ["Verificación de recibo", "Válida", "FAC-0001", "María G."]) expect(html).toContain(t);
+    for (const t of ["Verificación de recibo", "Válido", "FAC-0001", "María G."]) expect(html).toContain(t);
     const list = ((await (await handleProjects(jsonRequest("GET", `${B}/projects/${projectId}/invoices`), env, owner, ["projects", projectId, "invoices"])).json()) as { invoices: Invoice[] }).invoices;
     expect(list[0]).toMatchObject({ number: "FAC-0001", projectBalance: null, collectionId: null, collectionNumber: null, paymentIds: [] });
     const doc = await (await worker.fetch(new Request(`${await portal(env, client.id)}/recibo/FAC-0001`), env, ctx)).text();
@@ -200,5 +211,36 @@ describe("invoices", () => {
     expect(doc).not.toContain("Saldo del proyecto");
     // Un FAC- viejo no tiene paymentIds: no cubre pagos, así que el primer REC- los toma todos.
     expect((await issued(env, projectId)).paid).toBe(385000);
+  });
+
+  it("answers nothing_paid for a collection with no payments, and does not repeat a collection's payments in a second receipt", async () => {
+    const env = await makeEnv();
+    const { projectId } = await manualProject(env, { total: 450000 });
+    const cr = await handleProjects(jsonRequest("POST", `${B}/projects/${projectId}/collections`, { lines: [free("Kit de marca", 450000)] }), env, owner, ["projects", projectId, "collections"]);
+    const c = ((await cr.json()) as { collection: Collection }).collection;
+    const r = await issue(env, projectId, owner, { collectionId: c.id });
+    expect(r.status).toBe(409);
+    expect(await errorOf(r)).toBe("nothing_paid");
+    const first = await pay(env, projectId, { amount: 200000, collectionId: c.id });
+    expect((await issued(env, projectId, { collectionId: c.id })).paymentIds).toEqual([first.payments[0].id]);
+    const second = await pay(env, projectId, { amount: 250000, collectionId: c.id, method: "nequi" });
+    const again = await issued(env, projectId, { collectionId: c.id });
+    expect(again).toMatchObject({ number: "REC-0002", paid: 250000, paymentIds: [second.payments[0].id], projectBalance: 0 });
+  });
+
+  it("bills Jen Essence: promise → collection → payment → receipt, with nothing billable before", async () => {
+    const env = await makeEnv();
+    const { projectId } = await manualProject(env);
+    // Sin campos: el panel siempre manda JSON (readJson exige application/json en todo POST).
+    const empty = await issue(env, projectId);
+    expect(empty.status).toBe(400);
+    expect(await errorOf(empty)).toBe("lines_required");
+    const plans = (await (await handleProjectPayments(jsonRequest("POST", `${B}/projects/${projectId}/payment-plans`, { label: "Pago", amount: 450000, dueDate: "2026-12-05" }), env, owner, ["projects", projectId, "payment-plans"])).json()) as PaymentSummary;
+    const planId = plans.plans[0].id;
+    const cr = await handleProjects(jsonRequest("POST", `${B}/projects/${projectId}/collections`, { lines: [{ source: "plan", planId, title: "Pago", detail: "", quantity: 1, unitPrice: 1 }], setTotal: true }), env, owner, ["projects", projectId, "collections"]);
+    const c = ((await cr.json()) as { collection: Collection }).collection;
+    await pay(env, projectId, { amount: 450000, collectionId: c.id });
+    const inv = await issued(env, projectId, { collectionId: c.id });
+    expect(inv).toMatchObject({ number: "REC-0001", total: 450000, paid: 450000, projectBalance: 0, collectionNumber: "CC-0001", collectionId: c.id });
   });
 });

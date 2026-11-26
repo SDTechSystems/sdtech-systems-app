@@ -58,11 +58,14 @@ export function InvoicesCard({ projectId, client }: { projectId: string; client:
                 <div>
                   <p className="font-medium">{inv.number}</p>
                   <p className="text-sm text-muted-foreground">
-                    {formatDate(dayOf(inv.issuedAt))} · total {formatMoney(inv.total, inv.currency)} · saldo {formatMoney(Math.max(inv.balance, 0), inv.currency)}
+                    {formatDate(dayOf(inv.issuedAt))} · total {formatMoney(inv.total, inv.currency)}
+                    {inv.number.startsWith("FAC-")
+                      ? ` · saldo ${formatMoney(Math.max(inv.balance, 0), inv.currency)}`
+                      : inv.projectBalance !== null && ` · saldo del proyecto ${formatMoney(Math.max(inv.projectBalance, 0), inv.currency)}`}
                   </p>
                   <p className="sd-mono text-[11px] text-muted-foreground">Verificación: {inv.verifyCode}</p>
                 </div>
-                {inv.voided ? <Pill tone="red">Anulada</Pill> : <Pill tone="green">Emitida</Pill>}
+                {inv.voided ? <Pill tone="red">Anulado</Pill> : <Pill tone="green">Emitido</Pill>}
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="outline" onClick={() => open(inv)}>
@@ -73,7 +76,7 @@ export function InvoicesCard({ projectId, client }: { projectId: string; client:
                     <Button size="sm" variant="whatsapp" onClick={() => send(inv)}>
                       <MessageCircle className="h-4 w-4" /> Enviar
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => confirm(`¿Anular ${inv.number}? Seguirá existiendo, marcada como anulada.`) && call.mutate({ path: `/api/admin/invoices/${inv.id}/void` })}>
+                    <Button size="sm" variant="ghost" onClick={() => confirm(`¿Anular ${inv.number}? Seguirá existiendo, marcado como anulado.`) && call.mutate({ path: `/api/admin/invoices/${inv.id}/void` })}>
                       <X className="h-4 w-4" /> Anular
                     </Button>
                   </>

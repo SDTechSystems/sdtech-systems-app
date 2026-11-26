@@ -59,7 +59,9 @@ export function renderDocHtml(model: DocModel, opts: { backUrl: string; pdf: boo
   const money = (n: number) => esc(formatMoney(n, m.currency));
   const c = m.company;
   const companyLines = [c.nit ? `NIT ${c.nit}` : "", c.phone, c.email, c.website].filter(Boolean);
-  const facts = [...(m.issuedOn ? [{ label: "Emitida", value: formatLongDate(m.issuedOn) }] : []), ...m.facts];
+  // «Recibo» es masculino; «cotización» y «cuenta de cobro», femeninos.
+  const masculine = m.kind === "receipt";
+  const facts = [...(m.issuedOn ? [{ label: masculine ? "Emitido" : "Emitida", value: formatLongDate(m.issuedOn) }] : []), ...m.facts];
   const button = opts.pdf
     ? `<button type="button" id="download-pdf">Descargar PDF</button>`
     : `<button type="button" onclick="window.print()">Guardar PDF</button>`;
@@ -74,7 +76,7 @@ export function renderDocHtml(model: DocModel, opts: { backUrl: string; pdf: boo
     : "";
 
   const body = `<div class="tools"><a href="${esc(opts.backUrl)}">← Volver</a>${button}</div>
-<article class="sheet">${m.voided ? `<div class="void">ANULADA</div>` : ""}
+<article class="sheet">${m.voided ? `<div class="void">${masculine ? "ANULADO" : "ANULADA"}</div>` : ""}
 <div class="top">${brandLogo("color", c.name)}<div class="company"><strong>${esc(c.name)}</strong>${companyLines.map((l) => `<br>${esc(l)}`).join("")}</div></div>
 <div class="title"><h1>${esc(m.title)}</h1><span class="num">${esc(m.number)}</span></div>
 <div class="meta"><div class="box"><b>Para</b>${esc(m.party.name)}${m.party.lines.map((l) => `<br>${esc(l)}`).join("")}${m.from ? `<b class="from">De</b>${esc(m.from)}` : ""}</div>
