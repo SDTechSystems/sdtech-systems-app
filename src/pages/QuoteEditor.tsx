@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
@@ -7,18 +7,19 @@ import { formatMoney, parseMoneyInput } from "../../shared/money";
 import type { CatalogItem, Client, Currency, Quote, Service, Settings } from "../../shared/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CatalogPicker } from "@/components/CatalogPicker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { apiGet, apiSend } from "@/lib/api";
-import { SERVICE_LABEL, errorMessage, priceLabel } from "@/lib/labels";
+import { catalogLine } from "@/lib/catalog-pick";
+import { SERVICE_LABEL, errorMessage } from "@/lib/labels";
+import { priceText } from "@/lib/money-input";
 import { shareQuote } from "@/lib/quote-actions";
 
-type Line = { key: string; title: string; detail: string; quantity: string; price: string; catalogItemId: string | null };
+type Line = { key: string; title: string; detail: string; quantity: string; price: string; catalogItemId: string | null; suggested?: string };
 
-const priceText = (n: number, c: Currency) => formatMoney(n, c).replace(/^US\$ |^\$ /, "");
 let seq = 0;
 const newKey = () => `l${++seq}`;
 
@@ -29,7 +30,6 @@ export default function QuoteEditor() {
   const qc = useQueryClient();
   const editing = useQuery({ queryKey: ["quote", id], queryFn: () => apiGet<{ quote: Quote }>(`/api/admin/quotes/${id}`), enabled: !!id });
   const clients = useQuery({ queryKey: ["clients", "", false], queryFn: () => apiGet<{ clients: Client[] }>("/api/admin/clients?q=&archived=0") });
-  const catalog = useQuery({ queryKey: ["catalog", "active"], queryFn: () => apiGet<{ items: CatalogItem[] }>("/api/admin/catalog") });
   const settings = useQuery({ queryKey: ["settings"], queryFn: () => apiGet<{ settings: Settings }>("/api/admin/settings") });
 
   const [clientId, setClientId] = useState(params.get("cliente") ?? "");
@@ -40,6 +40,7 @@ export default function QuoteEditor() {
   const [notes, setNotes] = useState("");
   const [conditions, setConditions] = useState("");
   const [picking, setPicking] = useState(false);
+  const [checked, setChecked] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -66,11 +67,6 @@ export default function QuoteEditor() {
   const advancePct = Number.parseInt(advance, 10);
   const client = clients.data?.clients.find((c) => c.id === clientId);
 
-  const groups = useMemo(() => {
-    const items = (catalog.data?.items ?? []).filter((i) => i.currency === currency);
-    return (Object.keys(SERVICE_LABEL) as Service[]).map((s) => ({ s, items: items.filter((i) => i.service === s) })).filter((g) => g.items.length);
-  }, [catalog.data, currency]);
-
   const update = (key: string, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
 
   const save = useMutation({
@@ -92,6 +88,12 @@ export default function QuoteEditor() {
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
+
+  const submit = (andSend: boolean) => {
+    setChecked(true);
+    if (parsed.some((l) => l.p === null)) return toast.error("Escribe el valor de cada ítem (0 si es gratis)");
+    save.mutate(andSend);
+  };
 
   if (id && editing.data && editing.data.quote.status !== "draft") {
     return <p className="py-10 text-center text-muted-foreground">Esta cotización ya se envió y no se puede editar. Puedes renovarla si venció.</p>;
@@ -170,7 +172,7 @@ export default function QuoteEditor() {
               <Textarea aria-label="Detalle" rows={2} placeholder="Detalle: qué incluye, entregables…" value={l.detail} onChange={(e) => update(l.key, { detail: e.target.value })} />
               <div className="grid grid-cols-[5rem_1fr] gap-2">
                 <Input aria-label="Cantidad" inputMode="numeric" value={l.quantity} onChange={(e) => update(l.key, { quantity: e.target.value })} />
-                <Input aria-label="Precio" inputMode="decimal" placeholder="Precio unitario" value={l.price} onChange={(e) => update(l.key, { price: e.target.value })} />
+                <Input aria-label="Precio" inputMode="decimal" placeholder={l.suggested || "Precio unitario"} aria-invalid={checked && parseMoneyInput(l.price, currency) === null} value={l.price} onChange={(e) => update(l.key, { price: e.target.value })} />
               </div>
             </div>
           ))}
@@ -211,41 +213,24 @@ export default function QuoteEditor() {
       </Card>
 
       <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="outline" disabled={save.isPending} onClick={() => save.mutate(false)}>
+        <Button variant="outline" disabled={save.isPending} onClick={() => submit(false)}>
           Guardar borrador
         </Button>
-        <Button disabled={save.isPending || !client} onClick={() => save.mutate(true)}>
+        <Button disabled={save.isPending || !client} onClick={() => submit(true)}>
           Guardar y enviar por WhatsApp
         </Button>
       </div>
 
-      <Dialog open={picking} onOpenChange={setPicking}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Agregar del catálogo</DialogTitle>
-          </DialogHeader>
-          {groups.length === 0 && <p className="text-sm text-muted-foreground">No hay ítems del catálogo en {currency}.</p>}
-          {groups.map((g) => (
-            <div key={g.s} className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{SERVICE_LABEL[g.s]}</p>
-              {g.items.map((it) => (
-                <button
-                  key={it.id}
-                  className="w-full rounded-lg px-3 py-2 text-left hover:bg-muted"
-                  onClick={() => {
-                    setLines((ls) => [...ls, { key: newKey(), title: it.name, detail: it.description, quantity: "1", price: priceText(it.price, it.currency), catalogItemId: it.id }]);
-                    if (lines.length === 0) setService(it.service === "general" ? service : it.service);
-                    setPicking(false);
-                  }}
-                >
-                  <span className="font-medium">{it.name}</span>
-                  <span className="float-right text-sm text-[var(--sd-blue)]">{priceLabel(it)}</span>
-                </button>
-              ))}
-            </div>
-          ))}
-        </DialogContent>
-      </Dialog>
+      <CatalogPicker
+        open={picking}
+        onOpenChange={setPicking}
+        currency={currency}
+        defaultService={service}
+        onAdd={(picked) => {
+          if (lines.length === 0 && picked[0] && picked[0].service !== "general") setService(picked[0].service);
+          setLines((ls) => [...ls, ...picked.map((it) => ({ key: newKey(), ...catalogLine(it) }))]);
+        }}
+      />
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { addDays, todayBogota } from "../../shared/dates";
-import { formatMoney, parseMoneyInput } from "../../shared/money";
+import { parseMoneyInput } from "../../shared/money";
 import type { CatalogItem, Client, Currency, Subscription, SubscriptionKind } from "../../shared/types";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,8 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { apiGet, apiSend } from "@/lib/api";
 import { SUBSCRIPTION_KIND_LABEL, errorMessage, priceLabel } from "@/lib/labels";
-
-const priceText = (n: number, c: Currency) => formatMoney(n, c).replace(/^US\$ |^\$ /, "");
+import { priceText } from "@/lib/money-input";
 
 export function SubscriptionDialog({ open, onOpenChange, clientId, subscription }: { open: boolean; onOpenChange: (o: boolean) => void; clientId?: string; subscription?: Subscription }) {
   const qc = useQueryClient();
