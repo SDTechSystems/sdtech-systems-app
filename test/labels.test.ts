@@ -21,3 +21,12 @@ it("writes file sizes the Colombian way", () => {
   expect(formatBytes(248 * 1024 * 1024)).toBe("248 MB");
   expect(formatBytes(1.2 * 1024 ** 3)).toBe("1,2 GB");
 });
+
+it("explains an interrupted Drive upload by its real cause", async () => {
+  const { errorMessage } = await import("../src/lib/labels");
+  const { ApiError } = await import("../src/lib/api");
+  const { DriveUploadInterrupted } = await import("../src/lib/drive-upload");
+  const session = { uploadUrl: "https://www.googleapis.com/upload/drive/v3/files?upload_id=x", offset: 0 };
+  expect(errorMessage(new DriveUploadInterrupted(new ApiError(409, "drive_not_connected"), session))).toBe("Reconecta Google para usar Drive");
+  expect(errorMessage(new DriveUploadInterrupted(new TypeError("Failed to fetch"), session))).toBe("No se pudo conectar. Revisa tu internet.");
+});

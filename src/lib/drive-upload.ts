@@ -1,6 +1,6 @@
 import type { DocModel } from "../../shared/docs/model";
 import type { Project } from "../../shared/types";
-import { ApiError } from "./api";
+import { ApiError, apiFetch, jsonInit } from "./api";
 
 /** Dónde queda el archivo: la carpeta del proyecto (entrega) o la del documento. */
 export type DriveTarget = { type: "delivery"; projectId: string } | { type: "quote" | "collection" | "receipt"; id: string };
@@ -10,7 +10,14 @@ export const CHUNK_SIZE = 8 * 1024 * 1024;
 /** Esperas antes de cada reintento después de un error de red. */
 export const RETRY_DELAYS = [1000, 2000, 4000, 8000, 16000];
 
-type Deps = { fetch?: typeof fetch; delay?: (ms: number, signal?: AbortSignal) => Promise<void> };
+export type UploadOptions = {
+  fetch?: typeof fetch;
+  delay?: (ms: number, signal?: AbortSignal) => Promise<void>;
+  /** La sesión de una subida que se cortó («Reintentar»): se pregunta a Google y se sigue desde ahí. */
+  resume?: DriveSession;
+};
+/** Una subida en curso: la sesión de Google, los bytes que ya tiene y, si ya terminó, el id del archivo. */
+export type DriveSession = { uploadUrl: string; offset: number; fileId?: string };
 /** Lo que contestó Google a un PUT, venga directo o dentro del sobre del relevo. */
 type Reply = { status: number; range: string | null; body: { id?: string } | null };
 
@@ -18,6 +25,17 @@ export class DriveUploadError extends Error {
   constructor(readonly status: number) {
     super(`drive_upload_${status}`);
     this.name = "DriveUploadError";
+  }
+}
+
+/** La subida se detuvo con la sesión de Google abierta: `session` sirve para retomarla. `reason` es el error real. */
+export class DriveUploadInterrupted extends Error {
+  constructor(
+    readonly reason: unknown,
+    readonly session: DriveSession,
+  ) {
+    super(reason instanceof Error ? reason.message : "drive_upload_interrupted");
+    this.name = "DriveUploadInterrupted";
   }
 }
 
@@ -35,7 +53,7 @@ const sleep = (ms: number, signal?: AbortSignal) =>
 
 /** Un `fetch` que tiró TypeError no llegó a tener respuesta: red caída o CORS. */
 const isNetworkError = (e: unknown) => e instanceof TypeError;
-/** Vale reintentar: la red, o el relevo/Google contestando 5xx. */
+/** Vale reintentar: la red, o el panel/relevo contestando 5xx. */
 const isRetryable = (e: unknown) => isNetworkError(e) || (e instanceof ApiError && e.status >= 500);
 
 /** «bytes=0-8388607» → 8388608, el primer byte que Google aún no tiene. Sin Range, no tiene nada. */
@@ -44,23 +62,11 @@ export function nextOffset(range: string | null): number {
   return m ? Number(m[1]) + 1 : 0;
 }
 
-async function postJson<T>(f: typeof fetch, path: string, body: unknown, signal?: AbortSignal): Promise<T> {
-  const res = await f(path, { method: "POST", credentials: "same-origin", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify(body), signal });
-  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new ApiError(res.status, data.error ?? "unknown_error");
-  return data;
-}
-
 /** Un PUT a la sesión de Google, directo o por el relevo. `body` null es la consulta de estado. */
-async function putChunk(f: typeof fetch, uploadUrl: string, viaRelay: boolean, body: Blob | null, contentRange: string, signal?: AbortSignal): Promise<Reply> {
-  const headers = { "content-range": contentRange };
-  if (viaRelay) {
-    const res = await f(`/api/admin/drive/relay?url=${encodeURIComponent(uploadUrl)}`, { method: "PUT", credentials: "same-origin", headers, body, signal });
-    const data = (await res.json().catch(() => ({}))) as Reply & { error?: string };
-    if (!res.ok) throw new ApiError(res.status, data.error ?? "unknown_error");
-    return data;
-  }
-  const res = await f(uploadUrl, { method: "PUT", headers, body, signal });
+async function putChunk(f: typeof fetch | undefined, uploadUrl: string, viaRelay: boolean, body: Blob | null, contentRange: string, signal?: AbortSignal): Promise<Reply> {
+  const init: RequestInit = { method: "PUT", headers: { "content-range": contentRange }, body, signal };
+  if (viaRelay) return apiFetch<Reply>(`/api/admin/drive/relay?url=${encodeURIComponent(uploadUrl)}`, init, f);
+  const res = await (f ? f(uploadUrl, init) : fetch(uploadUrl, init));
   const done = res.status === 200 || res.status === 201;
   return { status: res.status, range: res.headers.get("range"), body: done ? ((await res.json().catch(() => null)) as Reply["body"]) : null };
 }
@@ -68,76 +74,113 @@ async function putChunk(f: typeof fetch, uploadUrl: string, viaRelay: boolean, b
 /**
  * Sube un archivo a Drive por partes de 8 MiB, directo del navegador a Google (o por el relevo si
  * el navegador no puede), sin leerlo entero nunca: cada parte es un `slice`. Si se corta la red,
- * pregunta a Google cuánto tiene y sigue desde ahí, hasta 5 veces seguidas.
+ * pregunta a Google cuánto tiene y sigue desde ahí, hasta 5 veces seguidas; después rechaza con
+ * `DriveUploadInterrupted`, cuya `session` se pasa en `resume` para seguir en la misma sesión.
  */
 export async function uploadToDrive(
   target: DriveTarget,
   file: Blob & { name: string },
   onProgress?: (fraction: number) => void,
   signal?: AbortSignal,
-  deps: Deps = {},
+  opts: UploadOptions = {},
 ): Promise<{ fileId: string; project?: Project }> {
-  const f = deps.fetch ?? ((...args: Parameters<typeof fetch>) => globalThis.fetch(...args));
-  const delay = deps.delay ?? sleep;
+  const f = opts.fetch;
+  const delay = opts.delay ?? sleep;
   const total = file.size;
-  const { uploadUrl } = await postJson<{ uploadUrl: string }>(f, "/api/admin/drive/uploads", { target, name: file.name, mimeType: file.type, size: total }, signal);
+  const open = async (): Promise<DriveSession> => {
+    const { uploadUrl } = await apiFetch<{ uploadUrl: string }>("/api/admin/drive/uploads", jsonInit("POST", { target, name: file.name, mimeType: file.type, size: total }, signal), f);
+    return { uploadUrl, offset: 0 };
+  };
 
+  let session = opts.resume ? { ...opts.resume } : await open();
   let viaRelay = relayOnly;
-  let answered = false;
-  let offset = 0;
+  // Al retomar, la sesión ya habló con Google: un error de red ya no es CORS.
+  let answered = !!opts.resume;
+  let askStatus = !!opts.resume;
+  let restarted = false;
   let retries = 0;
-  let askStatus = false;
   const backoff = async (cause: unknown) => {
     if (retries >= RETRY_DELAYS.length) throw cause;
     await delay(RETRY_DELAYS[retries++], signal);
     askStatus = true;
   };
+  const toRelay = () => {
+    // Esta subida y las que vengan, por el relevo; primero se pregunta cuánto tiene Google.
+    viaRelay = relayOnly = true;
+    askStatus = true;
+  };
 
-  onProgress?.(0);
-  for (;;) {
-    const query = askStatus;
-    let reply: Reply;
-    try {
-      if (askStatus) reply = await putChunk(f, uploadUrl, viaRelay, null, `bytes */${total}`, signal);
-      else {
-        const end = Math.min(offset + CHUNK_SIZE, total);
-        reply = await putChunk(f, uploadUrl, viaRelay, file.slice(offset, end), `bytes ${offset}-${end - 1}/${total}`, signal);
+  try {
+    onProgress?.(session.offset / total);
+    for (;;) {
+      if (session.fileId) {
+        try {
+          const done = await apiFetch<{ project?: Project }>("/api/admin/drive/complete", jsonInit("POST", { target, fileId: session.fileId, name: file.name, size: total }, signal), f);
+          return { fileId: session.fileId, ...(done.project ? { project: done.project } : {}) };
+        } catch (e) {
+          if (!isRetryable(e)) throw e;
+          await backoff(e);
+          continue;
+        }
       }
-    } catch (e) {
-      if (!isRetryable(e)) throw e;
-      if (!viaRelay && !answered && isNetworkError(e)) {
-        // El navegador no deja hablar directo con Google: esta subida y las que vengan, por el relevo.
-        viaRelay = relayOnly = true;
+      const query = askStatus;
+      let reply: Reply;
+      try {
+        if (query) reply = await putChunk(f, session.uploadUrl, viaRelay, null, `bytes */${total}`, signal);
+        else {
+          const end = Math.min(session.offset + CHUNK_SIZE, total);
+          reply = await putChunk(f, session.uploadUrl, viaRelay, file.slice(session.offset, end), `bytes ${session.offset}-${end - 1}/${total}`, signal);
+        }
+      } catch (e) {
+        if (!isRetryable(e)) throw e;
+        if (!viaRelay && !answered && isNetworkError(e)) toRelay();
+        else await backoff(e);
         continue;
       }
-      await backoff(e);
-      continue;
+      answered = true;
+      if (reply.status === 308) {
+        // Directo, un 308 sin Range después de mandar bytes es CORS que no deja leer el header: no se retrocede.
+        if (!viaRelay && reply.range === null && (!query || session.offset > 0)) {
+          toRelay();
+          continue;
+        }
+        const next = nextOffset(reply.range);
+        // Solo la consulta de estado puede mover el punto hacia atrás; una parte sin avance cuenta como fallo.
+        if (!query && next <= session.offset) {
+          await backoff(new DriveUploadError(308));
+          continue;
+        }
+        if (next > session.offset) retries = 0;
+        session.offset = next;
+        askStatus = false;
+        onProgress?.(next / total);
+        continue;
+      }
+      if (reply.status === 200 || reply.status === 201) {
+        if (!reply.body?.id) throw new DriveUploadError(reply.status);
+        session = { ...session, offset: total, fileId: reply.body.id };
+        retries = 0;
+        onProgress?.(1);
+        continue;
+      }
+      if ((reply.status === 404 || reply.status === 410) && !restarted) {
+        // La sesión de Google venció: se abre otra y se sube desde el principio.
+        restarted = true;
+        session = await open();
+        askStatus = false;
+        retries = 0;
+        onProgress?.(0);
+        continue;
+      }
+      if (reply.status >= 500) {
+        await backoff(new DriveUploadError(reply.status));
+        continue;
+      }
+      // Otro 4xx: Google no aceptó la subida.
+      throw new DriveUploadError(reply.status);
     }
-    answered = true;
-    if (reply.status === 308) {
-      const next = nextOffset(reply.range);
-      const moved = next > offset;
-      if (moved) retries = 0;
-      offset = next;
-      askStatus = false;
-      onProgress?.(offset / total);
-      // Una parte que Google no guardó en nada cuenta como fallo, para no repetirla sin fin.
-      if (!moved && !query) await backoff(new DriveUploadError(308));
-      continue;
-    }
-    if (reply.status === 200 || reply.status === 201) {
-      const fileId = reply.body?.id;
-      if (!fileId) throw new DriveUploadError(reply.status);
-      onProgress?.(1);
-      const done = await postJson<{ project?: Project }>(f, "/api/admin/drive/complete", { target, fileId, name: file.name, size: total }, signal);
-      return { fileId, ...(done.project ? { project: done.project } : {}) };
-    }
-    if (reply.status >= 500) {
-      await backoff(new DriveUploadError(reply.status));
-      continue;
-    }
-    // 404/410: la sesión de Google venció; otro 4xx: Google no aceptó la subida.
-    throw new DriveUploadError(reply.status);
+  } catch (e) {
+    throw new DriveUploadInterrupted(e, session);
   }
 }
 

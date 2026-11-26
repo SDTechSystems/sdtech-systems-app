@@ -28,8 +28,14 @@ export function DeliveryCard({ project, client, payments }: { project: Project; 
   const drive = driveReady(google.data);
   const picker = useRef<HTMLInputElement>(null);
   const [url, setUrl] = useState(project.deliveryUrl ?? "");
-  // Una subida a Drive cambia el link: el campo muestra el nuevo.
-  useEffect(() => setUrl(project.deliveryUrl ?? ""), [project.deliveryUrl]);
+  // Una subida a Drive cambia el link: el campo muestra el nuevo, salvo que Juan esté escribiendo otro.
+  const shownLink = useRef(project.deliveryUrl ?? "");
+  useEffect(() => {
+    const prev = shownLink.current;
+    const next = project.deliveryUrl ?? "";
+    shownLink.current = next;
+    setUrl((current) => (current === prev ? next : current));
+  }, [project.deliveryUrl]);
   const done = (r: { project: Project }) => {
     qc.setQueryData(["project", project.id], (old: object | undefined) => ({ ...(old ?? {}), project: r.project }));
   };

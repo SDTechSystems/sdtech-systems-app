@@ -26,18 +26,24 @@ function reloadOnce(): void {
   globalThis.location.reload();
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const init: RequestInit = { method, credentials: "same-origin", headers: { accept: "application/json" } };
-  if (body !== undefined) {
-    init.headers = { accept: "application/json", "content-type": "application/json" };
-    init.body = JSON.stringify(body);
-  }
-  const res = await fetch(path, init);
+/**
+ * Una llamada a la API del panel que contesta JSON: con la sesión, recargando si Access venció y
+ * con `ApiError` si falla. `fetchImpl` deja usar otro `fetch` (las pruebas de la subida a Drive).
+ */
+export async function apiFetch<T>(path: string, init: RequestInit, fetchImpl?: typeof fetch): Promise<T> {
+  const full: RequestInit = { credentials: "same-origin", ...init, headers: { accept: "application/json", ...(init.headers as Record<string, string> | undefined) } };
+  const res = await (fetchImpl ? fetchImpl(path, full) : fetch(path, full));
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   if (res.status === 401) reloadOnce();
   if (!res.ok) throw new ApiError(res.status, data.error ?? "unknown_error");
   return data as T;
 }
+
+/** `init` de una llamada con cuerpo JSON. */
+export const jsonInit = (method: string, body?: unknown, signal?: AbortSignal): RequestInit =>
+  body === undefined ? { method, signal } : { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal };
+
+const request = <T>(method: string, path: string, body?: unknown): Promise<T> => apiFetch<T>(path, jsonInit(method, body));
 
 export const apiGet = <T>(path: string): Promise<T> => request<T>("GET", path);
 

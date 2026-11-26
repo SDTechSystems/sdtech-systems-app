@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import type { Project } from "../../shared/types";
-import { uploadToDrive, type DriveTarget } from "./drive-upload";
+import { DriveUploadInterrupted, uploadToDrive, type DriveSession, type DriveTarget } from "./drive-upload";
 import { errorMessage } from "./labels";
 
 export type UploadState = "queued" | "uploading" | "done" | "failed";
-export type UploadItem = { key: number; file: File; state: UploadState; progress: number; error?: string };
+/** `session`: la sesión de Google de un intento que falló; «Reintentar» sigue desde ahí. */
+export type UploadItem = { key: number; file: File; state: UploadState; progress: number; error?: string; session?: DriveSession };
 
 let nextKey = 1;
 
 /**
- * La cola de «Subir archivos»: sube de a un archivo, en el orden en que se eligieron.
+ * La cola de «Subir archivos»: sube de a un archivo, en el orden en que se eligieron. Mientras
+ * sube, el navegador avisa antes de cerrar o recargar la página.
  * `onUploaded` recibe el proyecto que devuelve el Worker (con el link de entrega nuevo).
  */
 export function useDriveUploads(target: DriveTarget, onUploaded: (project: Project | undefined) => void) {
@@ -25,19 +27,30 @@ export function useDriveUploads(target: DriveTarget, onUploaded: (project: Proje
     const next = items.find((i) => i.state === "queued");
     if (!next) return;
     running.current = true;
-    patch(next.key, { state: "uploading", progress: 0, error: undefined });
-    uploadToDrive(latest.current.target, next.file, (progress) => patch(next.key, { progress })).then(
+    patch(next.key, { state: "uploading", error: undefined });
+    uploadToDrive(latest.current.target, next.file, (progress) => patch(next.key, { progress }), undefined, { resume: next.session }).then(
       (r) => {
         running.current = false;
-        patch(next.key, { state: "done", progress: 1 });
+        patch(next.key, { state: "done", progress: 1, session: undefined });
         latest.current.onUploaded(r.project);
       },
       (e) => {
         running.current = false;
-        patch(next.key, { state: "failed", error: errorMessage(e) });
+        patch(next.key, { state: "failed", error: errorMessage(e), session: e instanceof DriveUploadInterrupted ? e.session : undefined });
       },
     );
   }, [items]);
+
+  const busy = items.some((i) => i.state === "queued" || i.state === "uploading");
+  useEffect(() => {
+    if (!busy) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [busy]);
 
   return {
     items,
@@ -46,6 +59,7 @@ export function useDriveUploads(target: DriveTarget, onUploaded: (project: Proje
       const added = Array.from(files, (file): UploadItem => ({ key: nextKey++, file, state: "queued", progress: 0 }));
       setItems((list) => [...list, ...added]);
     },
-    retry: (key: number) => patch(key, { state: "queued", progress: 0 }),
+    /** Vuelve a la cola; si quedó una sesión abierta, sigue desde donde iba. */
+    retry: (key: number) => patch(key, { state: "queued" }),
   };
 }

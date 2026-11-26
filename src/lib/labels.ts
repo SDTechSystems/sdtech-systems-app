@@ -3,7 +3,7 @@ import { formatMoney } from "../../shared/money";
 import { DEFAULT_TEMPLATES, fillTemplate } from "../../shared/templates";
 import type { Billing, CatalogItem, PhaseStatus, ProjectStatus, Quote, QuoteStatus, Service, SubscriptionKind } from "../../shared/types";
 import { ApiError } from "./api";
-import { DriveUploadError } from "./drive-upload";
+import { DriveUploadError, DriveUploadInterrupted } from "./drive-upload";
 
 export const SERVICE_LABEL: Record<Service, string> = {
   web: "Páginas web",
@@ -57,6 +57,7 @@ const ERRORS: Record<string, string> = {
 };
 
 export function errorMessage(e: unknown): string {
+  if (e instanceof DriveUploadInterrupted) return errorMessage(e.reason);
   if (e instanceof ApiError) return ERRORS[e.code] ?? `Algo salió mal (${e.code})`;
   if (e instanceof DriveUploadError) return "Google Drive no aceptó la subida. Intenta de nuevo.";
   return "No se pudo conectar. Revisa tu internet.";
