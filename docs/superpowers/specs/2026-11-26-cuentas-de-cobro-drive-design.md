@@ -177,8 +177,10 @@ valor, se muestra «abonada · falta $X».
 - **Qué cuenta como pagado:** los pagos registrados contra sus promesas enlazadas,
   desde cualquier parte de la app (Pagos, Pendientes o la cuenta), más los pagos
   registrados desde la cuenta misma. Un pago del proyecto sin enlace no cuenta.
-- **Registrar pago** desde la cuenta abre el registro de pago con el valor pendiente y
-  la promesa enlazada ya puestos.
+- **Registrar pago** desde la cuenta abre el registro de pago con el valor pendiente
+  y, por defecto, «Repartir entre sus promesas, por fecha»: el pago se divide entre
+  las promesas enlazadas abiertas, de la más próxima a la más lejana, para que todas
+  queden pagadas. Juan puede elegir una promesa en particular.
 - Cuando lo pagado cubre el valor, la cuenta pasa a *pagada* y la app ofrece
   **«Emitir recibo»** con las mismas líneas.
 - **Anular:** como la factura actual; la cuenta sigue existiendo, marcada como anulada.
