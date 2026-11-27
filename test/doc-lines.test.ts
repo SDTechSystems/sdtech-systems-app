@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultReceiptPayments, lineInvalid, linesTotal, newLinesTotal, pendingToBill, receiptLines, shortcutLines, toLineInputs, type EditorLine } from "../src/lib/doc-lines";
+import { defaultReceiptPayments, editorDataError, totalOption, lineInvalid, linesTotal, newLinesTotal, pendingToBill, receiptLines, shortcutLines, toLineInputs, type EditorLine } from "../src/lib/doc-lines";
 import type { ChangeRequest, Collection, Invoice, Payment, PaymentPlan, PaymentSummary, Quote } from "../shared/types";
 
 const plan = (p: Partial<PaymentPlan>): PaymentPlan => ({ id: "p1", projectId: "pr", label: "Pago", amount: 450000, dueDate: "2026-12-05", status: "pending", paidAt: null, paidAmount: 0, ...p });
@@ -60,6 +60,17 @@ describe("doc lines", () => {
     expect(cuts[2].lines).toEqual([expect.objectContaining({ source: "change", title: "Cambio aprobado: Ronda extra", price: "150.000" })]);
   });
 
+  it("a project has a total when its base plus approved changes is above 0 (one definition for shortcuts and the total option)", () => {
+    // Sin total base y un cambio aprobado de $ 100.000: hay saldo, y nunca «Usar este valor como total».
+    const s = summary({ baseTotal: 0, changesTotal: 100000, total: 100000, balance: 100000 });
+    expect(shortcutLines({ ...base, summary: s, collections: [] }).map((x) => x.key)).toContain("balance");
+    expect(totalOption(s, 0)).toBeNull();
+    expect(totalOption(s, 40000)).toBe("add");
+    expect(totalOption(summary(), 0)).toBe("set");
+    expect(totalOption(summary(), 40000)).toBe("set");
+    expect(totalOption(summary({ baseTotal: 450000, total: 450000 }), 0)).toBeNull();
+  });
+
   it("newLinesTotal counts only catalog and free lines", () => {
     const lines = [
       line({ source: "plan", price: "450.000", locked: true }),
@@ -88,12 +99,34 @@ describe("doc lines", () => {
 
   it("builds a receipt from the quote and changes, or from the project total", () => {
     const s = summary({ total: 550000, baseTotal: 400000, changesTotal: 150000 });
-    expect(receiptLines({ summary: s, quote, changes: [approved(150000)], projectTitle: "Jen Essence" }).map((l) => [l.title, l.price])).toEqual([
+    expect(receiptLines({ summary: s, quote, changes: [approved(150000)], projectTitle: "Jen Essence", collections: [] }).map((l) => [l.title, l.price])).toEqual([
       ["Logo", "400.000"],
       ["Cambio aprobado: Ronda extra", "150.000"],
     ]);
-    expect(receiptLines({ summary: summary({ total: 450000, baseTotal: 450000 }), quote: null, changes: [], projectTitle: "Jen Essence" }).map((l) => [l.title, l.price])).toEqual([["Jen Essence", "450.000"]]);
-    expect(receiptLines({ summary: summary(), quote: null, changes: [], projectTitle: "Jen Essence" })).toEqual([]);
+    expect(receiptLines({ summary: summary({ total: 450000, baseTotal: 450000 }), quote: null, changes: [], projectTitle: "Jen Essence", collections: [] }).map((l) => [l.title, l.price])).toEqual([["Jen Essence", "450.000"]]);
+    expect(receiptLines({ summary: summary(), quote: null, changes: [], projectTitle: "Jen Essence", collections: [] })).toEqual([]);
+  });
+
+  it("adds the lines live collections added to the total to a receipt, and leaves them out of the project-total line", () => {
+    const ronda = { title: "Ronda de ajustes", detail: "", quantity: 1, unitPrice: 40000, total: 40000 };
+    const fotos = { title: "Fotos extra", detail: "", quantity: 1, unitPrice: 30000, total: 30000 };
+    const ccs = [collection({ status: "voided", addedLines: [fotos] }), collection({ status: "paid", addedLines: [ronda] }), collection({ addedLines: [] })];
+    const withQuote = receiptLines({ summary: summary({ baseTotal: 440000, total: 440000 }), quote, changes: [], projectTitle: "Jen Essence", collections: ccs });
+    expect(withQuote.map((l) => [l.title, l.price])).toEqual([
+      ["Logo", "400.000"],
+      ["Ronda de ajustes", "40.000"],
+    ]);
+    const noQuote = receiptLines({ summary: summary({ baseTotal: 490000, total: 490000 }), quote: null, changes: [], projectTitle: "Jen Essence", collections: ccs });
+    expect(noQuote.map((l) => [l.title, l.price])).toEqual([
+      ["Jen Essence", "450.000"],
+      ["Ronda de ajustes", "40.000"],
+    ]);
+  });
+
+  it("reports the first failed query the editor needs, so the panel can say why it does not open", () => {
+    const boom = new Error("quote failed");
+    expect(editorDataError([{ isError: false, error: null }, { isError: true, error: boom }, { isError: true, error: new Error("other") }])).toBe(boom);
+    expect(editorDataError([{ isError: false, error: null }])).toBeNull();
   });
 
   it("preselects the payments no other live receipt covers", () => {

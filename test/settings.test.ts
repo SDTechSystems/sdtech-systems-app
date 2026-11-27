@@ -89,6 +89,8 @@ describe("nextNumber", () => {
       [{ ...ok, active: "yes" }],
       [{ ...ok, detail: 5 }],
       Array.from({ length: 13 }, (_, i) => ({ ...ok, id: `m${i}` })),
+      // Sin ningún medio activo no se podría registrar un pago.
+      [{ ...ok, active: false }, { ...ok, id: "b", active: false }],
     ];
     for (const methods of bad) {
       const r = await handleSettings(jsonRequest("PATCH", U, { payment: { methods } }), await makeEnv(), owner, ["settings"]);

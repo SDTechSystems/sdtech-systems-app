@@ -4,7 +4,9 @@ import { handleClients } from "../worker/api/clients";
 import { handlePaymentPlans, handlePayments, handleProjectPayments } from "../worker/api/payments";
 import { formatLongDate, todayBogota } from "../shared/dates";
 import { handleProjects } from "../worker/api/projects";
-import type { Collection, PaymentSummary, Project } from "../shared/types";
+import { handleChanges } from "../worker/api/changes";
+import { handlePending } from "../worker/api/pending";
+import type { Collection, Pending, PaymentSummary, Project } from "../shared/types";
 import { jsonRequest, makeEnv } from "./helpers";
 import { approvedProject, B, newClient, owner, socio, type TestEnv } from "./fixtures";
 
@@ -38,13 +40,25 @@ const projectTotal = async (env: TestEnv, pid: string) =>
   (await env.DB.prepare("SELECT total FROM projects WHERE id = ?").bind(pid).first<{ total: number | null }>())!.total;
 const plansOf = async (env: TestEnv, pid: string) =>
   ((await (await handleProjectPayments(jsonRequest("GET", `${B}/projects/${pid}/payments`), env, owner, ["projects", pid, "payments"])).json()) as PaymentSummary).plans;
+const addPlan = async (env: TestEnv, pid: string, label: string, amount: number, dueDate: string) => {
+  const s = (await (await handleProjectPayments(jsonRequest("POST", `${B}/projects/${pid}/payment-plans`, { label, amount, dueDate }), env, owner, ["projects", pid, "payment-plans"])).json()) as PaymentSummary;
+  return s.plans.find((p) => p.label === label)!.id;
+};
+/** Cambio de costo aprobado (sube el total del proyecto). */
+const approveChange = async (env: TestEnv, pid: string, amount: number, description = "Sección de blog") => {
+  const r = await handleProjects(jsonRequest("POST", `${B}/projects/${pid}/changes`, { description, amount }), env, owner, ["projects", pid, "changes"]);
+  const id = ((await r.json()) as { change: { id: string } }).change.id;
+  expect((await handleChanges(jsonRequest("POST", `${B}/changes/${id}/approve`, {}), env, owner, ["changes", id, "approve"])).status).toBe(200);
+};
+const summaryOf = async (env: TestEnv, pid: string) =>
+  (await (await handleProjectPayments(jsonRequest("GET", `${B}/projects/${pid}/payments`), env, owner, ["projects", pid, "payments"])).json()) as PaymentSummary;
 const portalUrl = async (env: TestEnv, clientId: string) =>
   ((await (await handleClients(jsonRequest("POST", `${B}/clients/${clientId}/portal-link`, {}), env, owner, ["clients", clientId, "portal-link"])).json()) as { url: string }).url;
 const adminRequest = (method: string, path: string, body?: object) => jsonRequest(method, `${B}${path}`, body);
 
 /** Los pagos anteriores a la cuenta se separan por created_at: deja pasar un milisegundo. */
 const tick = () => new Promise((r) => setTimeout(r, 2));
-const voidCollection = (env: TestEnv, id: string) => worker.fetch(adminRequest("POST", `/collections/${id}/void`, {}), env, ctx);
+const voidCollection = (env: TestEnv, id: string, body: object = {}) => worker.fetch(adminRequest("POST", `/collections/${id}/void`, body), env, ctx);
 const errorOf = async (r: Response) => ((await r.json()) as { error: string }).error;
 
 /** El worker en pruebas autentica con DEV_AUTH_EMAIL (sin Access). */
@@ -88,6 +102,30 @@ describe("collections", () => {
     expect(logs.results.map((l) => JSON.parse(l.detail))).toEqual([{ number: "CC-0003", before: 770000, after: 810000 }]);
   });
 
+  it("has a total when approved changes give it one: setTotal is ignored and the total is not counted twice", async () => {
+    const env = await devEnv();
+    const { projectId } = await jenEssence(env);
+    await approveChange(env, projectId, 100000);
+    expect(await summaryOf(env, projectId)).toMatchObject({ baseTotal: 0, total: 100000 });
+    await issued(env, projectId, { lines: [freeLine(100000, "balance")], setTotal: true });
+    expect(await projectTotal(env, projectId)).toBeNull();
+    expect((await summaryOf(env, projectId)).total).toBe(100000);
+    // Lo nuevo se suma a la base aunque esté vacía.
+    await issued(env, projectId, { lines: [freeLine(40000, "catalog")], addToTotal: true });
+    expect(await projectTotal(env, projectId)).toBe(40000);
+    expect((await summaryOf(env, projectId)).total).toBe(140000);
+    const log = await env.DB.prepare("SELECT detail FROM activity_log WHERE action = 'collection_total'").all<{ detail: string }>();
+    expect(log.results.map((l) => JSON.parse(l.detail))).toEqual([{ number: "CC-0002", before: null, after: 40000 }]);
+  });
+
+  it("sets the total from the collection when the project has none, even with a base of 0", async () => {
+    const env = await devEnv();
+    const { projectId, planId } = await jenEssence(env);
+    await env.DB.prepare("UPDATE projects SET total = 0 WHERE id = ?").bind(projectId).run();
+    await issued(env, projectId, { lines: [planLine(planId)], setTotal: true, addToTotal: true });
+    expect(await projectTotal(env, projectId)).toBe(450000);
+  });
+
   it("is paid when a payment is recorded from Pagos against a linked promise, and pending again when it is deleted", async () => {
     const env = await devEnv();
     const { projectId, planId } = await jenEssence(env);
@@ -108,6 +146,56 @@ describe("collections", () => {
     expect(await getCollection(env, c.id)).toMatchObject({ status: "partial", paid: 250000 });
     const other = await jenEssence(env);
     expect((await pay(env, other.projectId, { amount: 1000, collectionId: c.id })).status).toBe(400);
+  });
+
+  it("splits a payment from the collection across its linked promises by due date (Anticipo and Saldo)", async () => {
+    const env = await devEnv();
+    const { projectId, planId } = await jenEssence(env);
+    const saldo = await addPlan(env, projectId, "Saldo", 100000, "2026-12-20");
+    const c = await issued(env, projectId, { lines: [planLine(saldo), planLine(planId)] });
+    const s = (await (await pay(env, projectId, { amount: 550000, collectionId: c.id })).json()) as PaymentSummary;
+    expect(s.payments.map((p) => [p.planId, p.amount]).sort()).toEqual([
+      [planId, 450000],
+      [saldo, 100000],
+    ].sort());
+    expect(s.plans.map((p) => [p.id, p.status, p.paidAmount])).toEqual([
+      [planId, "paid", 450000],
+      [saldo, "paid", 100000],
+    ]);
+    expect(await getCollection(env, c.id)).toMatchObject({ status: "paid", paid: 550000 });
+    const p = (await (await handlePending(jsonRequest("GET", `${B}/pending?today=2026-12-15`), env, owner, ["pending"])).json()) as Pending;
+    expect(p.items.filter((i) => i.kind === "payment" && i.projectId === projectId)).toEqual([]);
+    const again = await issue(env, projectId, { lines: [planLine(saldo)] });
+    expect(again.status).toBe(400);
+    expect(await errorOf(again)).toBe("invalid_plan");
+    // Una sola acción: un solo registro en el historial.
+    const logs = await env.DB.prepare("SELECT detail FROM activity_log WHERE action = 'payment'").all<{ detail: string }>();
+    expect(logs.results).toHaveLength(1);
+    expect(JSON.parse(logs.results[0].detail)).toMatchObject({ collectionId: c.id, amount: 550000 });
+  });
+
+  it("puts a partial payment from the collection on the earliest promise, and the remainder of an overpayment on the last one", async () => {
+    const env = await devEnv();
+    const { projectId, planId } = await jenEssence(env);
+    const saldo = await addPlan(env, projectId, "Saldo", 100000, "2026-12-20");
+    const c = await issued(env, projectId, { lines: [planLine(planId), planLine(saldo)] });
+    let s = (await (await pay(env, projectId, { amount: 200000, collectionId: c.id })).json()) as PaymentSummary;
+    expect(s.payments.map((p) => [p.planId, p.amount])).toEqual([[planId, 200000]]);
+    s = (await (await pay(env, projectId, { amount: 400000, collectionId: c.id })).json()) as PaymentSummary;
+    const byPlan = (id: string) => s.payments.filter((p) => p.planId === id).reduce((n, p) => n + p.amount, 0);
+    expect([byPlan(planId), byPlan(saldo)]).toEqual([450000, 150000]);
+    expect(s.payments).toHaveLength(3);
+    expect(await getCollection(env, c.id)).toMatchObject({ status: "paid", paid: 600000 });
+  });
+
+  it("splits across a linked promise and the collection's own promise", async () => {
+    const env = await devEnv();
+    const { projectId, planId } = await jenEssence(env);
+    const c = await issued(env, projectId, { lines: [planLine(planId), freeLine(200000)], dueDate: "2026-12-30" });
+    const s = (await (await pay(env, projectId, { amount: 650000, collectionId: c.id })).json()) as PaymentSummary;
+    expect(s.plans.every((p) => p.status === "paid")).toBe(true);
+    expect(s.payments.every((p) => p.planId !== null)).toBe(true);
+    expect(await getCollection(env, c.id)).toMatchObject({ status: "paid", paid: 650000 });
   });
 
   it("shows 'partial' with an abono", async () => {
@@ -243,6 +331,51 @@ describe("collections", () => {
     await pay(env, projectId, { amount: 50000, collectionId: paidOwn.id });
     await worker.fetch(adminRequest("POST", `/collections/${paidOwn.id}/void`, {}), env, ctx);
     expect((await plansOf(env, projectId)).map((p) => p.id)).toContain(own.id);
+  });
+
+  it("voiding a collection that added to the total subtracts it only when asked (revertTotal)", async () => {
+    const env = await devEnv();
+    const { projectId } = await approvedProject(env);
+    const kept = await issued(env, projectId, { lines: [freeLine(40000, "catalog"), freeLine(100000, "balance")], addToTotal: true });
+    expect(kept.totalDelta).toBe(40000);
+    expect(await projectTotal(env, projectId)).toBe(810000);
+    expect((await voidCollection(env, kept.id)).status).toBe(200);
+    expect(await projectTotal(env, projectId)).toBe(810000);
+
+    const reverted = await issued(env, projectId, { lines: [freeLine(60000)], addToTotal: true });
+    expect(await projectTotal(env, projectId)).toBe(870000);
+    const r = await voidCollection(env, reverted.id, { revertTotal: true });
+    expect(((await r.json()) as { collection: Collection }).collection.status).toBe("voided");
+    expect(await projectTotal(env, projectId)).toBe(810000);
+    const logs = await env.DB.prepare("SELECT detail FROM activity_log WHERE action = 'collection_total' ORDER BY rowid").all<{ detail: string }>();
+    expect(JSON.parse(logs.results.at(-1)!.detail)).toEqual({ number: reverted.number, before: 870000, after: 810000 });
+    // Anular otra vez no resta dos veces.
+    await voidCollection(env, reverted.id, { revertTotal: true });
+    expect(await projectTotal(env, projectId)).toBe(810000);
+
+    // Una cuenta que no cambió el total no toca nada.
+    const plain = await issued(env, projectId, { lines: [freeLine(100000, "balance")], addToTotal: true });
+    expect(plain.totalDelta).toBe(0);
+    await voidCollection(env, plain.id, { revertTotal: true });
+    expect(await projectTotal(env, projectId)).toBe(810000);
+  });
+
+  it("reverting a total the collection set from nothing leaves the project without total, and never goes below 0", async () => {
+    const env = await devEnv();
+    const { projectId, planId } = await jenEssence(env);
+    const c = await issued(env, projectId, { lines: [planLine(planId)], setTotal: true });
+    expect(c.totalDelta).toBe(450000);
+    await voidCollection(env, c.id, { revertTotal: true });
+    expect(await projectTotal(env, projectId)).toBeNull();
+    const log = await env.DB.prepare("SELECT detail FROM activity_log WHERE action = 'collection_total' ORDER BY rowid DESC").first<{ detail: string }>();
+    expect(JSON.parse(log!.detail)).toEqual({ number: c.number, before: 450000, after: null });
+
+    const other = await jenEssence(env);
+    await env.DB.prepare("UPDATE projects SET total = 100000 WHERE id = ?").bind(other.projectId).run();
+    const added = await issued(env, other.projectId, { lines: [freeLine(50000)], addToTotal: true });
+    await env.DB.prepare("UPDATE projects SET total = 20000 WHERE id = ?").bind(other.projectId).run();
+    await voidCollection(env, added.id, { revertTotal: true });
+    expect(await projectTotal(env, other.projectId)).toBe(0);
   });
 
   it("lists a project's collections newest first", async () => {

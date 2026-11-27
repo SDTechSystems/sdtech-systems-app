@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { apiSend } from "@/lib/api";
 import { errorMessage } from "@/lib/labels";
 import { priceText } from "@/lib/money-input";
-import { firstActiveMethod } from "@/lib/payment-methods";
+import { defaultPlanChoice, firstActiveMethod, planIdToSend, SPLIT_CHOICE } from "@/lib/payment-methods";
 import { useSettingsQuery } from "@/lib/useSettings";
 
 /** Para qué es el pago: una promesa, una cuenta de cobro o un abono general (ninguno de los dos). */
@@ -39,7 +39,8 @@ export function PaymentDialog({ projectId, summary, target, onClose }: { project
   // Hasta que Juan elija otro, el primer medio activo de Ajustes (que puede llegar después de abrir).
   const method = picked || firstActiveMethod(methods);
   const [note, setNote] = useState("");
-  const [planChoice, setPlanChoice] = useState(proposed?.id ?? "none");
+  // Desde una cuenta, por defecto el pago se reparte entre sus promesas por fecha (como lo hace el servidor).
+  const [planChoice, setPlanChoice] = useState(() => defaultPlanChoice(target, choices));
 
   const save = useMutation({
     mutationFn: () =>
@@ -47,7 +48,7 @@ export function PaymentDialog({ projectId, summary, target, onClose }: { project
         amount: parseMoneyInput(amount, currency) ?? 0,
         paidOn: date,
         method,
-        planId: plan?.id ?? (planChoice === "none" ? null : planChoice),
+        planId: planIdToSend(target, planChoice),
         collectionId: collection?.id ?? null,
         note,
       }),
@@ -94,6 +95,7 @@ export function PaymentDialog({ projectId, summary, target, onClose }: { project
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  {collection && <SelectItem value={SPLIT_CHOICE}>Repartir entre sus promesas, por fecha</SelectItem>}
                   {choices.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.label} · faltan {formatMoney(p.amount - p.paidAmount, currency)}

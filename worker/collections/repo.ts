@@ -1,7 +1,7 @@
 import type { Collection, CollectionStatus } from "../../shared/types";
 
 /** Lo que se congela al emitir. */
-export type CollectionSnapshot = Pick<Collection, "lines" | "client" | "methods" | "includeDelivery" | "deliveryUrl" | "paymentUrl" | "note" | "projectTitle">;
+export type CollectionSnapshot = Pick<Collection, "lines" | "client" | "methods" | "includeDelivery" | "deliveryUrl" | "paymentUrl" | "note" | "projectTitle" | "addedLines">;
 
 interface Row {
   id: string;
@@ -15,6 +15,7 @@ interface Row {
   snapshot: string;
   drive_file_id: string | null;
   voided_at: string | null;
+  total_delta: number;
   plan_ids: string | null;
   payment_ids: string | null;
   paid: number;
@@ -27,7 +28,7 @@ interface Row {
 const COUNTS = `p.collection_id = c.id OR (p.created_at >= c.created_at AND p.plan_id IN (SELECT cp.plan_id FROM collection_plans cp WHERE cp.collection_id = c.id))`;
 const PAID = `(SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE ${COUNTS})`;
 
-const SELECT = `SELECT c.id, c.number, c.project_id, c.client_id, c.issued_at, c.currency, c.total, c.due_date, c.snapshot, c.drive_file_id, c.voided_at,
+const SELECT = `SELECT c.id, c.number, c.project_id, c.client_id, c.issued_at, c.currency, c.total, c.due_date, c.snapshot, c.drive_file_id, c.voided_at, c.total_delta,
   (SELECT GROUP_CONCAT(cp.plan_id) FROM collection_plans cp WHERE cp.collection_id = c.id) AS plan_ids,
   (SELECT GROUP_CONCAT(p.id) FROM payments p WHERE ${COUNTS}) AS payment_ids, ${PAID} AS paid FROM collections c`;
 
@@ -35,7 +36,7 @@ export const collectionStatus = (total: number, paid: number, voided: boolean): 
   voided ? "voided" : paid >= total ? "paid" : paid > 0 ? "partial" : "pending";
 
 const toCollection = (r: Row): Collection => {
-  const snap = JSON.parse(r.snapshot) as CollectionSnapshot;
+  const snap = JSON.parse(r.snapshot) as Omit<CollectionSnapshot, "addedLines"> & Partial<Pick<CollectionSnapshot, "addedLines">>;
   return {
     id: r.id,
     number: r.number,
@@ -50,7 +51,9 @@ const toCollection = (r: Row): Collection => {
     paid: r.paid,
     status: collectionStatus(r.total, r.paid, !!r.voided_at),
     driveFileId: r.drive_file_id,
+    totalDelta: r.total_delta,
     ...snap,
+    addedLines: snap.addedLines ?? [],
   };
 };
 
@@ -91,11 +94,32 @@ export async function planInCollection(db: D1Database, planId: string): Promise<
   return !!(await db.prepare("SELECT 1 FROM collection_plans l JOIN collections c ON c.id = l.collection_id WHERE l.plan_id = ? AND c.voided_at IS NULL LIMIT 1").bind(planId).first());
 }
 
-/** La primera promesa enlazada sin pagar (por fecha), para un pago registrado desde la cuenta. */
-export async function firstOpenPlan(db: D1Database, collectionId: string): Promise<string | null> {
-  const r = await db
-    .prepare("SELECT pp.id FROM collection_plans cp JOIN payment_plans pp ON pp.id = cp.plan_id WHERE cp.collection_id = ? AND pp.paid_at IS NULL ORDER BY pp.due_date, pp.created_at LIMIT 1")
+/** Las promesas enlazadas sin pagar, por fecha, con lo que le falta a cada una (para repartir un pago registrado desde la cuenta). */
+export async function openPlansOf(db: D1Database, collectionId: string): Promise<{ id: string; open: number }[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT pp.id, pp.amount - (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE plan_id = pp.id) AS open
+       FROM collection_plans cp JOIN payment_plans pp ON pp.id = cp.plan_id
+       WHERE cp.collection_id = ? AND pp.paid_at IS NULL ORDER BY pp.due_date, pp.created_at, pp.id`,
+    )
     .bind(collectionId)
-    .first<{ id: string }>();
-  return r?.id ?? null;
+    .all<{ id: string; open: number }>();
+  return results;
+}
+
+/**
+ * Reparte un pago entre las promesas abiertas, en orden: a cada una hasta lo que le falta, y el resto a la última.
+ * Sin promesas abiertas, todo va sin promesa (null).
+ */
+export function splitPayment(amount: number, plans: { id: string; open: number }[]): { planId: string | null; amount: number }[] {
+  if (!plans.length) return [{ planId: null, amount }];
+  const out: { planId: string | null; amount: number }[] = [];
+  let left = amount;
+  plans.forEach((p, i) => {
+    if (left <= 0) return;
+    const part = i === plans.length - 1 ? left : Math.min(left, Math.max(p.open, 0));
+    if (part > 0) out.push({ planId: p.id, amount: part });
+    left -= part;
+  });
+  return out;
 }

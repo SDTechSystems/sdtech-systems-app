@@ -48,7 +48,7 @@ export function DocLineRow({
         <p className="flex items-center gap-1.5 text-sm">
           <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <strong>{formatMoney(parseMoneyInput(l.price, currency) ?? 0, currency)}</strong>
-          <span className="text-xs text-muted-foreground">· el valor se cambia en Pagos</span>
+          <span className="text-xs text-muted-foreground">· el valor y la fecha se cambian en la promesa (Pagos)</span>
         </p>
       ) : (
         <div className="grid grid-cols-[4.5rem_1fr] gap-2">

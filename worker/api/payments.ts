@@ -4,7 +4,7 @@ import { logActivity } from "../activity";
 import { requireRole, type Handler } from "../auth/session";
 import { error, json, now, readJson } from "../http";
 import { activeMethodIds, loadPayments, syncPlanPaid } from "../payments/repo";
-import { firstOpenPlan, planInCollection } from "../collections/repo";
+import { openPlansOf, planInCollection, splitPayment } from "../collections/repo";
 import { getSettings } from "../settings";
 
 const validAmount = (v: unknown): v is number => Number.isInteger(v) && (v as number) > 0;
@@ -46,22 +46,33 @@ export const handleProjectPayments: Handler = async (request, env, session, path
     const c = await db.prepare("SELECT id FROM collections WHERE id = ? AND project_id = ? AND voided_at IS NULL").bind(collectionId, projectId).first();
     if (!c) return error(400, "invalid_collection");
   }
-  // Desde una cuenta de cobro, el pago abona a su primera promesa enlazada sin pagar.
-  const planId = body.planId || (collectionId ? await firstOpenPlan(db, collectionId) : null);
+  const planId = body.planId || null;
   if (planId) {
     const plan = await db.prepare("SELECT id FROM payment_plans WHERE id = ? AND project_id = ?").bind(planId, projectId).first();
     if (!plan) return error(400, "invalid_plan");
     if (collectionId && !(await db.prepare("SELECT 1 FROM collection_plans WHERE collection_id = ? AND plan_id = ?").bind(collectionId, planId).first())) return error(400, "invalid_plan");
   }
-  const id = crypto.randomUUID();
+  // Desde una cuenta de cobro sin promesa elegida, el pago se reparte entre sus promesas abiertas por fecha: una fila por promesa.
+  const parts = planId || !collectionId ? [{ planId, amount: body.amount }] : splitPayment(body.amount, await openPlansOf(db, collectionId));
   const t = now();
+  const note = body.note?.trim() || null;
+  const rows = parts.map((p) => ({ ...p, id: crypto.randomUUID() }));
   await db.batch([
-    db
-      .prepare("INSERT INTO payments (id, project_id, plan_id, amount, paid_on, method, note, created_at, collection_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .bind(id, projectId, planId, body.amount, body.paidOn, body.method, body.note?.trim() || null, t, collectionId),
-    logActivity(db, session.email, "project", projectId, "payment", { paymentId: id, planId, collectionId, amount: body.amount, method: body.method }),
+    ...rows.map((r) =>
+      db
+        .prepare("INSERT INTO payments (id, project_id, plan_id, amount, paid_on, method, note, created_at, collection_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(r.id, projectId, r.planId, r.amount, body.paidOn, body.method, note, t, collectionId),
+    ),
+    logActivity(db, session.email, "project", projectId, "payment", {
+      paymentId: rows[0].id,
+      ...(rows.length > 1 ? { paymentIds: rows.map((r) => r.id), planIds: rows.map((r) => r.planId) } : {}),
+      planId: rows[0].planId,
+      collectionId,
+      amount: body.amount,
+      method: body.method,
+    }),
   ]);
-  if (planId) await syncPlanPaid(db, planId, t);
+  for (const r of rows) if (r.planId) await syncPlanPaid(db, r.planId, t);
   return json(await loadPayments(db, projectId), 201);
 };
 

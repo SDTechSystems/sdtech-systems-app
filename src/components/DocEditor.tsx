@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { apiSend } from "@/lib/api";
 import { catalogLine } from "@/lib/catalog-pick";
-import { collectionLines, defaultReceiptPayments, lineInvalid, linesTotal, newLinesTotal, receiptLines, shortcutLines, shortcutOf, toLineInputs, type EditorLine } from "@/lib/doc-lines";
+import { collectionLines, defaultReceiptPayments, lineInvalid, linesTotal, newLinesTotal, receiptLines, shortcutLines, shortcutOf, toLineInputs, totalOption, type EditorLine } from "@/lib/doc-lines";
 import { errorMessage, formatDate } from "@/lib/labels";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useSettingsQuery } from "@/lib/useSettings";
@@ -65,7 +65,7 @@ export function DocEditor({
   const shortcuts = useMemo(() => shortcutLines({ summary, collections, quote, changes, advancePercent, receipt }), [summary, collections, quote, changes, advancePercent, receipt]);
 
   const [lines, setLines] = useState<EditorLine[]>(() => {
-    if (receipt) return fromCollection ? collectionLines(fromCollection) : receiptLines({ summary, quote, changes, projectTitle: project.title });
+    if (receipt) return fromCollection ? collectionLines(fromCollection) : receiptLines({ summary, quote, changes, projectTitle: project.title, collections });
     return shortcuts.filter((s) => initialPlanIds.some((id) => s.key === `plan:${id}`)).flatMap((s) => s.lines);
   });
   // La fecha acordada arranca en la de la promesa que se cobra.
@@ -81,6 +81,7 @@ export function DocEditor({
 
   const total = linesTotal(lines, currency);
   const added = newLinesTotal(lines, currency);
+  const totalChoice = totalOption(summary, added);
   const m = (n: number) => formatMoney(n, currency);
   const unused = shortcuts.filter((s) => !lines.some((l) => shortcutOf(l) === s.key));
   const covered = new Map(receipts.filter((r) => !r.voided).flatMap((r) => r.paymentIds.map((id) => [id, r.number] as const)));
@@ -108,8 +109,8 @@ export function DocEditor({
         includeDelivery,
         paymentUrl: paymentUrl.trim() || null,
         note: note.trim() || null,
-        setTotal: project.total === null && useAsTotal,
-        addToTotal: project.total !== null && added > 0 && addToTotal,
+        setTotal: totalChoice === "set" && useAsTotal,
+        addToTotal: totalChoice === "add" && addToTotal,
       };
       return (await apiSend<{ collection: Collection }>("POST", `/api/admin/projects/${project.id}/collections`, body)).collection;
     },
@@ -202,16 +203,15 @@ export function DocEditor({
             <Label htmlFor="cc-note">Nota (sale en el documento)</Label>
             <Textarea id="cc-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
-          {project.total === null ? (
+          {totalChoice === "set" && (
             <Check id="cc-total" checked={useAsTotal} onChange={setUseAsTotal}>
               Usar este valor como total del proyecto
             </Check>
-          ) : (
-            added > 0 && (
-              <Check id="cc-add" checked={addToTotal} onChange={setAddToTotal}>
-                Sumar {m(added)} al total del proyecto
-              </Check>
-            )
+          )}
+          {totalChoice === "add" && (
+            <Check id="cc-add" checked={addToTotal} onChange={setAddToTotal}>
+              Sumar {m(added)} al total del proyecto
+            </Check>
           )}
         </div>
       )}

@@ -102,6 +102,9 @@ export const MIGRATIONS: Migration[] = [
       `ALTER TABLE quotes ADD COLUMN drive_file_id TEXT`,
       `CREATE TABLE IF NOT EXISTS project_files (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, drive_file_id TEXT NOT NULL, name TEXT NOT NULL, size INTEGER, created_at TEXT NOT NULL)`,
       `CREATE UNIQUE INDEX IF NOT EXISTS idx_project_files_file ON project_files (project_id, drive_file_id)`,
+      // Lo que la cuenta le sumó al total base del proyecto, para poder restarlo al anularla; y si la base estaba vacía.
+      `ALTER TABLE collections ADD COLUMN total_delta INTEGER NOT NULL DEFAULT 0`,
+      `ALTER TABLE collections ADD COLUMN total_from_null INTEGER NOT NULL DEFAULT 0`,
     ],
   },
 ];

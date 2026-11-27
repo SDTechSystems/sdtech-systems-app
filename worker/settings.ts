@@ -80,7 +80,8 @@ function validMethods(methods: unknown): methods is PaymentMethodOption[] {
     if (typeof m.name !== "string" || !m.name.trim() || typeof m.detail !== "string") return false;
     if (typeof m.showOnDocs !== "boolean" || typeof m.active !== "boolean") return false;
   }
-  return true;
+  // Al menos uno activo: sin medios no se puede registrar un pago.
+  return (methods as PaymentMethodOption[]).some((m) => m.active);
 }
 
 export function saveSettingsStatement(db: D1Database, s: Settings): D1PreparedStatement {

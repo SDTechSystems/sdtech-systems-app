@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { apiSend } from "@/lib/api";
 import { errorMessage } from "@/lib/labels";
-import { newMethodId } from "@/lib/payment-methods";
+import { isLastActive, newMethodId } from "@/lib/payment-methods";
 import { useSettingsQuery } from "@/lib/useSettings";
 
 export function PaymentMethodsCard() {
@@ -62,8 +62,9 @@ export function PaymentMethodsCard() {
                 <Label htmlFor={`pm-docs-${m.id}`}>Mostrar en cuentas de cobro</Label>
               </div>
               <div className="flex items-center gap-2">
-                <Switch id={`pm-active-${m.id}`} checked={m.active} onCheckedChange={(v) => patch(i, { active: v })} />
+                <Switch id={`pm-active-${m.id}`} checked={m.active} disabled={isLastActive(methods, i)} onCheckedChange={(v) => patch(i, { active: v })} />
                 <Label htmlFor={`pm-active-${m.id}`}>Activo</Label>
+                {isLastActive(methods, i) && <span className="text-xs text-muted-foreground">Es el único activo: se necesita al menos uno para registrar pagos</span>}
               </div>
               <div className="ml-auto flex gap-1">
                 <Button size="icon" variant="ghost" aria-label={`Subir ${m.name}`} disabled={i === 0} onClick={() => move(i, -1)}>

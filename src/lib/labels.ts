@@ -1,7 +1,7 @@
 import { formatLongDate } from "../../shared/dates";
 import { formatMoney } from "../../shared/money";
 import { DEFAULT_TEMPLATES, fillTemplate } from "../../shared/templates";
-import type { Billing, CatalogItem, PhaseStatus, ProjectStatus, Quote, QuoteStatus, Service, SubscriptionKind } from "../../shared/types";
+import type { Billing, CatalogItem, Collection, PhaseStatus, ProjectStatus, Quote, QuoteStatus, Service, SubscriptionKind } from "../../shared/types";
 import { ApiError } from "./api";
 import { DriveUploadError, DriveUploadInterrupted } from "./drive-upload";
 
@@ -54,6 +54,10 @@ const ERRORS: Record<string, string> = {
   drive_not_connected: "Reconecta Google para usar Drive",
   drive_error: "Google Drive no respondió. Intenta de nuevo.",
   invalid_file: "Revisa el archivo: está vacío o tiene un nombre muy largo",
+  invalid_target: "Ese proyecto o documento ya no existe. Recarga la página e intenta de nuevo.",
+  chunk_too_large: "Una parte de la subida es demasiado grande. Intenta de nuevo.",
+  length_required: "El navegador no dijo el tamaño de la parte que sube. Intenta de nuevo.",
+  invalid_upload_url: "La subida a Google Drive no es válida. Vuelve a subir el archivo.",
 };
 
 export function errorMessage(e: unknown): string {
@@ -106,6 +110,10 @@ export function quoteWhatsAppText(
 }
 
 export const formatDate = (date: string): string => formatLongDate(date);
+
+/** La casilla al anular una cuenta que cambió el total del proyecto, o null si no lo cambió. */
+export const revertTotalLabel = (c: Pick<Collection, "totalDelta" | "currency">): string | null =>
+  c.totalDelta > 0 ? `Restar ${formatMoney(c.totalDelta, c.currency)} del total del proyecto` : null;
 export { signedMoney } from "../../shared/money";
 
 export const SUBSCRIPTION_KIND_LABEL: Record<SubscriptionKind, string> = {

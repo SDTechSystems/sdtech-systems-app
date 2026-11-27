@@ -131,6 +131,33 @@ describe("invoices", () => {
     expect(inv.lines).toEqual([{ title: "Diseño de logo", detail: "", quantity: 1, unitPrice: 120000, total: 120000 }]);
   });
 
+  it("adds what collections added to the total as their own lines in a later receipt", async () => {
+    const env = await makeEnv();
+    const { projectId } = await approvedProject(env);
+    const cc = (body: object) => handleProjects(jsonRequest("POST", `${B}/projects/${projectId}/collections`, body), env, owner, ["projects", projectId, "collections"]);
+    expect((await cc({ lines: [free("Ronda de ajustes", 40000), { ...free("Saldo pendiente", 100000), source: "balance" }], addToTotal: true })).status).toBe(201);
+    const voided = ((await (await cc({ lines: [free("Fotos extra", 30000)], addToTotal: true })).json()) as { collection: Collection }).collection;
+    await handleCollections(jsonRequest("POST", `${B}/collections/${voided.id}/void`, { revertTotal: true }), env, owner, ["collections", voided.id, "void"]);
+    const inv = await issued(env, projectId);
+    expect(inv.lines.map((l) => [l.title, l.total])).toEqual([
+      ["Landing page", 650000],
+      ["Fotos de producto", 120000],
+      ["Ronda de ajustes", 40000],
+    ]);
+    expect(inv.total).toBe(810000);
+  });
+
+  it("without a quote, the project-total line leaves out what collections added (no double count)", async () => {
+    const env = await makeEnv();
+    const { projectId } = await manualProject(env, { total: 450000 });
+    expect((await handleProjects(jsonRequest("POST", `${B}/projects/${projectId}/collections`, { lines: [free("Ronda de ajustes", 40000)], addToTotal: true }), env, owner, ["projects", projectId, "collections"])).status).toBe(201);
+    const inv = await issued(env, projectId);
+    expect(inv.lines.map((l) => [l.title, l.total])).toEqual([
+      ["Jen Essence", 450000],
+      ["Ronda de ajustes", 40000],
+    ]);
+  });
+
   it("returns lines_required, not nothing_to_bill, when there is nothing to bill", async () => {
     const env = await makeEnv();
     const { projectId } = await manualProject(env);

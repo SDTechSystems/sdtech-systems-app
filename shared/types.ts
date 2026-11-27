@@ -328,4 +328,8 @@ export interface Collection {
   client: Invoice["client"];
   methods: { name: string; detail: string }[];
   driveFileId: string | null;
+  /** Las líneas de trabajo nuevo que esta cuenta sumó al total del proyecto (salen como líneas propias en un recibo). */
+  addedLines: InvoiceLine[];
+  /** Lo que la cuenta le sumó al total base del proyecto (0 si no lo cambió). */
+  totalDelta: number;
 }

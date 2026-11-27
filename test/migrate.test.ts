@@ -41,6 +41,31 @@ describe("ensureSchema", () => {
     expect(row?.n).toBe(1);
   });
 
+  it("keeps going when another isolate applied the same migration first, and fails when nobody did", async () => {
+    const db = createTestDb();
+    let raced = false;
+    // El otro isolate aplica la migración justo antes: la nuestra choca («table already exists») y se revierte.
+    const racy = {
+      ...db,
+      batch: async (stmts: D1PreparedStatement[]) => {
+        if (!raced) {
+          raced = true;
+          await db.batch(stmts);
+          throw new Error("table users already exists");
+        }
+        return db.batch(stmts);
+      },
+    } as D1Database;
+    await ensureSchema(racy);
+    const n = await db.prepare("SELECT COUNT(*) AS n FROM schema_migrations").first<{ n: number }>();
+    const { MIGRATIONS } = await import("../worker/db/migrations");
+    expect(n!.n).toBe(MIGRATIONS.length);
+
+    resetSchemaFlag();
+    const broken = { ...createTestDb(), batch: async () => Promise.reject(new Error("disk I/O error")) } as unknown as D1Database;
+    await expect(ensureSchema(broken)).rejects.toThrow("disk I/O error");
+  });
+
   it("seeds the starter catalog in COP with the agreed prices", async () => {
     const db = createTestDb();
     await ensureSchema(db);

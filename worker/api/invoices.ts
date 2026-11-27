@@ -4,7 +4,7 @@ import { requireRole, type Handler } from "../auth/session";
 import { listChanges } from "../changes/repo";
 import { priceLines } from "../collections/lines";
 import { renameLater, voidedName } from "../google/drive";
-import { collectionPaymentIds, loadCollection } from "../collections/repo";
+import { collectionPaymentIds, listCollections, loadCollection } from "../collections/repo";
 import { error, json, now, readJson } from "../http";
 import { coveredPaymentIds, findInvoice, listInvoices, newVerifyCode, type InvoiceSnapshot } from "../invoices/repo";
 import { loadPayments } from "../payments/repo";
@@ -26,18 +26,26 @@ interface ReceiptInput {
   collectionId?: unknown;
 }
 
-/** Las líneas de hoy: ítems de la cotización (o el total del proyecto) más los cambios aprobados. */
+/**
+ * Las líneas de hoy: ítems de la cotización (o el total del proyecto) más los cambios aprobados, más lo que cada cuenta de
+ * cobro no anulada sumó al total, como línea propia. La línea del total deja por fuera lo sumado, para no contarlo dos veces.
+ */
 async function currentLines(db: D1Database, project: ProjectRow): Promise<InvoiceLine[]> {
   const quote = project.quote_id ? await loadQuote(db, project.quote_id) : null;
+  const added = (await listCollections(db, { projectId: project.id }))
+    .filter((c) => c.status !== "voided")
+    .reverse()
+    .flatMap((c) => c.addedLines);
+  const base = (project.total ?? 0) - added.reduce((s, l) => s + l.total, 0);
   const lines: InvoiceLine[] = quote
     ? quote.items.map((i) => ({ title: i.title, detail: i.detail, quantity: i.quantity, unitPrice: i.unitPrice, total: i.quantity * i.unitPrice }))
-    : project.total
-      ? [{ title: project.title, detail: "", quantity: 1, unitPrice: project.total, total: project.total }]
+    : base > 0
+      ? [{ title: project.title, detail: "", quantity: 1, unitPrice: base, total: base }]
       : [];
   for (const c of (await listChanges(db, project.id)).filter((c) => c.kind === "cost" && c.status === "approved").reverse()) {
     lines.push({ title: `Cambio aprobado: ${c.description}`, detail: "", quantity: 1, unitPrice: c.amount ?? 0, total: c.amount ?? 0 });
   }
-  return lines;
+  return [...lines, ...added];
 }
 
 /** /api/admin/projects/:id/invoices — recibos de pago (REC-) */

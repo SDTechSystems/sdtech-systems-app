@@ -336,6 +336,48 @@ describe("Drive uploads", () => {
     expect(await errorOf(await drive(env, "POST", "uploads", { target: { type: "quote", id: quote.id }, ...pdf, mimeType: "application/zip" }))).toBe("invalid_file");
   });
 
+  it("uploads a fresh PDF in the project folder when the stored one is in the client folder (quote approved after saving)", async () => {
+    const { env, g } = await setup();
+    const client = await newClient(env, "Jen Essence");
+    const quote = await sentQuote(env, client.id);
+    const pdf = { name: `${quote.number}.pdf`, mimeType: "application/pdf", size: 120_000 };
+    expect((await drive(env, "POST", "uploads", { target: { type: "quote", id: quote.id }, ...pdf })).status).toBe(200);
+    const clientFolder = (await folderOf(env, "clients", client.id))!;
+    const old = g.drive.add(pdf.name, clientFolder);
+    expect((await drive(env, "POST", "complete", { target: { type: "quote", id: quote.id }, fileId: old, ...pdf })).status).toBe(200);
+
+    const approve = await handleQuotes(jsonRequest("POST", `${B}/quotes/${quote.id}/approve`, {}), env, owner, ["quotes", quote.id, "approve"]);
+    const { projectId } = (await approve.json()) as { projectId: string };
+    expect((await drive(env, "POST", "uploads", { target: { type: "quote", id: quote.id }, ...pdf })).status).toBe(200);
+    const folder = (await folderOf(env, "projects", projectId))!;
+    const open = g.calls.filter((c) => c.url.startsWith(UPLOAD)).at(-1)!;
+    expect(open).toMatchObject({ method: "POST", url: `${UPLOAD}?uploadType=resumable&fields=id`, body: { name: pdf.name, parents: [folder] } });
+
+    const fresh = g.drive.add(pdf.name, folder);
+    expect(await (await drive(env, "POST", "complete", { target: { type: "quote", id: quote.id }, fileId: fresh, ...pdf })).json()).toEqual({ ok: true });
+    expect((await env.DB.prepare("SELECT drive_file_id AS f FROM quotes WHERE id = ?").bind(quote.id).first<{ f: string }>())!.f).toBe(fresh);
+  });
+
+  it("uploads a fresh PDF in the recreated project folder when the old folder (and its file) went to the trash", async () => {
+    const { env, g } = await setup();
+    const { projectId } = await approvedProject(env);
+    const c = ((await (await issueAnticipo(env, projectId)).json()) as { collection: Collection }).collection;
+    const pdf = { name: `${c.number}.pdf`, mimeType: "application/pdf", size: 90_000 };
+    expect((await drive(env, "POST", "uploads", { target: { type: "collection", id: c.id }, ...pdf })).status).toBe(200);
+    const oldFolder = (await folderOf(env, "projects", projectId))!;
+    const old = g.drive.add(pdf.name, oldFolder);
+    expect((await drive(env, "POST", "complete", { target: { type: "collection", id: c.id }, fileId: old, ...pdf })).status).toBe(200);
+
+    // Drive marca como en la papelera la carpeta y lo que tiene dentro.
+    g.drive.files.get(oldFolder)!.trashed = true;
+    g.drive.files.get(old)!.trashed = true;
+    expect((await drive(env, "POST", "uploads", { target: { type: "collection", id: c.id }, ...pdf })).status).toBe(200);
+    const folder = (await folderOf(env, "projects", projectId))!;
+    expect(folder).not.toBe(oldFolder);
+    expect(g.calls.filter((x) => x.url.startsWith(UPLOAD)).at(-1)).toMatchObject({ method: "POST", body: { name: pdf.name, parents: [folder] } });
+    expect(g.calls.some((x) => x.method === "PATCH" && x.url.startsWith(`${UPLOAD}/${old}`))).toBe(false);
+  });
+
   it("returns 409 drive_not_connected without the Drive scope, and issuing a collection or a receipt still works", async () => {
     const { env, g } = await setup((_m, url) =>
       url.startsWith("https://oauth2.googleapis.com/token") ? [200, { access_token: "at-1", expires_in: 3599, refresh_token: "rt", scope: "https://www.googleapis.com/auth/calendar.events" }] : undefined,
@@ -402,7 +444,7 @@ describe("Drive upload relay", () => {
     ]) {
       const r = await relay(env, bad, { body: "x", headers: { "content-length": "1" } });
       expect(r.status, bad).toBe(400);
-      expect(await errorOf(r)).toBe("invalid_url");
+      expect(await errorOf(r)).toBe("invalid_upload_url");
     }
     expect(g.calls.length).toBe(before);
     expect(await errorOf(await relay(env, SESSION, { body: "x" }))).toBe("length_required");

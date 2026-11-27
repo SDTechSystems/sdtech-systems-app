@@ -27,6 +27,16 @@ export interface Shortcut {
 /** Solo `catalog` y `free` son trabajo nuevo, lo único que «Sumar al total del proyecto» agrega. */
 const NEW_WORK: CollectionLineSource[] = ["catalog", "free"];
 
+/** ¿El proyecto tiene total? Base más cambios aprobados mayor que 0 (la misma regla que el servidor). */
+export const hasProjectTotal = (summary: PaymentSummary): boolean => summary.total > 0;
+
+/**
+ * Qué casilla de total muestra la cuenta de cobro: «Usar este valor como total» si el proyecto no tiene total,
+ * «Sumar $X al total» si lo tiene y hay trabajo nuevo, o ninguna.
+ */
+export const totalOption = (summary: PaymentSummary, added: number): "set" | "add" | null =>
+  !hasProjectTotal(summary) ? "set" : added > 0 ? "add" : null;
+
 const isOpen = (c: Collection) => c.status === "pending" || c.status === "partial";
 
 /** Saldo del proyecto menos lo que ya cobran las cuentas abiertas, para no cobrar dos veces lo mismo. */
@@ -63,7 +73,7 @@ export function shortcutLines(input: { summary: PaymentSummary; collections: Col
   const { summary, collections, quote, changes, advancePercent, receipt = false } = input;
   const cur = summary.currency;
   const out: Shortcut[] = [];
-  const hasTotal = summary.total > 0;
+  const hasTotal = hasProjectTotal(summary);
   const pending = pendingToBill(summary, collections);
   if (hasTotal && pending > 0) out.push({ key: "balance", label: "Saldo pendiente", lines: [line("balance", "balance", "Saldo pendiente", pending, cur)] });
   if (hasTotal && advancePercent > 0) {
@@ -117,13 +127,23 @@ export const toLineInputs = (lines: EditorLine[], currency: Currency): Collectio
     unitPrice: parseMoneyInput(l.price, currency) ?? 0,
   }));
 
-/** Recibo sin cuenta de cobro: ítems de la cotización más cambios aprobados, o el total del proyecto. */
-export function receiptLines(input: { summary: PaymentSummary; quote: Quote | null; changes: ChangeRequest[]; projectTitle: string }): EditorLine[] {
-  const { summary, quote, changes, projectTitle } = input;
+/**
+ * Recibo sin cuenta de cobro: ítems de la cotización más cambios aprobados, o el total del proyecto; más lo que cada cuenta
+ * no anulada sumó al total, como línea propia (la línea del total lo deja por fuera). Igual que el servidor.
+ */
+export function receiptLines(input: { summary: PaymentSummary; quote: Quote | null; changes: ChangeRequest[]; projectTitle: string; collections: Collection[] }): EditorLine[] {
+  const { summary, quote, changes, projectTitle, collections } = input;
   const cur = summary.currency;
+  // De la más vieja a la más nueva (la lista llega de la más nueva a la más vieja).
+  const added = collections
+    .filter((c) => c.status !== "voided")
+    .reverse()
+    .flatMap((c) => c.addedLines ?? []);
+  const rest = summary.baseTotal - added.reduce((s, l) => s + l.total, 0);
   const fromQuote = quoteLines(quote, cur);
-  const base = fromQuote.length ? fromQuote : summary.baseTotal > 0 ? [line("total", "free", projectTitle, summary.baseTotal, cur)] : [];
-  return [...base, ...changeLines(changes, cur)];
+  const base = fromQuote.length ? fromQuote : rest > 0 ? [line("total", "free", projectTitle, rest, cur)] : [];
+  const addedLines = added.map((l, n) => line(`added#${n}`, "free", l.title, l.unitPrice, cur, { detail: l.detail, quantity: String(l.quantity) }));
+  return [...base, ...changeLines(changes, cur), ...addedLines];
 }
 
 /** Recibo de una cuenta de cobro: sus mismas líneas. */
@@ -136,3 +156,6 @@ export function defaultReceiptPayments(payments: Payment[], receipts: Invoice[],
   const pool = collection ? collection.paymentIds : payments.map((p) => p.id);
   return pool.filter((id) => !covered.has(id));
 }
+
+/** El primer error de las consultas que necesita el editor, o null (para avisar en vez de no abrir nada). */
+export const editorDataError = (queries: { isError: boolean; error: unknown }[]): unknown => queries.find((q) => q.isError)?.error ?? null;

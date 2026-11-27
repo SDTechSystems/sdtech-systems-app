@@ -30,3 +30,18 @@ it("explains an interrupted Drive upload by its real cause", async () => {
   expect(errorMessage(new DriveUploadInterrupted(new ApiError(409, "drive_not_connected"), session))).toBe("Reconecta Google para usar Drive");
   expect(errorMessage(new DriveUploadInterrupted(new TypeError("Failed to fetch"), session))).toBe("No se pudo conectar. Revisa tu internet.");
 });
+
+it("offers to subtract from the project total what a collection added, when voiding it", async () => {
+  const { revertTotalLabel } = await import("../src/lib/labels");
+  expect(revertTotalLabel({ totalDelta: 40000, currency: "COP" })).toBe("Restar $ 40.000 del total del proyecto");
+  expect(revertTotalLabel({ totalDelta: 0, currency: "COP" })).toBeNull();
+});
+
+it("explains the Drive errors in Spanish, with the relay's bad URL apart from the payment link one", async () => {
+  const { errorMessage } = await import("../src/lib/labels");
+  const { ApiError } = await import("../src/lib/api");
+  const msg = (code: string) => errorMessage(new ApiError(400, code));
+  for (const code of ["invalid_target", "chunk_too_large", "length_required", "invalid_upload_url"]) expect(msg(code), code).not.toMatch(/Algo salió mal/);
+  expect(msg("invalid_upload_url")).not.toBe(msg("invalid_url"));
+  expect(msg("invalid_upload_url")).not.toMatch(/link de pago/);
+});

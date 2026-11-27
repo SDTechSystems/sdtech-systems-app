@@ -67,12 +67,16 @@ async function openUpload(request: Request, env: Env): Promise<Response> {
   const dest = await resolveTarget(env, target);
   if (!dest) return error(400, "invalid_target");
   const opts = { parentId: dest.folderId, name, mimeType, size: body.size, origin: panelOrigin(request) };
+  // Solo se reemplaza el archivo guardado si sigue vivo en la carpeta de hoy; si se borró, está en la papelera o quedó en
+  // otra carpeta (la cotización se aprobó y ahora va al proyecto), se sube uno nuevo y su id se guarda al completar.
+  const parents = dest.fileId ? await parentsOf(env, dest.fileId) : null;
+  const replace = dest.fileId && parents?.includes(dest.folderId) ? dest.fileId : undefined;
   let uploadUrl: string;
   try {
-    uploadUrl = await startUpload(env, { ...opts, fileId: dest.fileId ?? undefined });
+    uploadUrl = await startUpload(env, { ...opts, fileId: replace });
   } catch (e) {
     // El archivo guardado ya no existe en Drive: se sube uno nuevo en la carpeta.
-    if (!(dest.fileId && e instanceof GoogleError && e.status === 404)) throw e;
+    if (!(replace && e instanceof GoogleError && e.status === 404)) throw e;
     uploadUrl = await startUpload(env, opts);
   }
   return json({ uploadUrl });
@@ -134,10 +138,10 @@ async function relayChunk(request: Request): Promise<Response> {
   try {
     target = new URL(new URL(request.url).searchParams.get("url") ?? "");
   } catch {
-    return error(400, "invalid_url");
+    return error(400, "invalid_upload_url");
   }
   if (target.protocol !== "https:" || target.host !== "www.googleapis.com" || target.username || target.password || !target.pathname.startsWith("/upload/drive/v3/")) {
-    return error(400, "invalid_url");
+    return error(400, "invalid_upload_url");
   }
   const lengthHeader = request.headers.get("content-length");
   if (lengthHeader === null || !/^\d+$/.test(lengthHeader)) return error(411, "length_required");

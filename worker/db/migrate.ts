@@ -24,9 +24,14 @@ async function apply(db: D1Database): Promise<void> {
   const applied = new Set(results.map((r) => r.id));
   for (const m of MIGRATIONS) {
     if (applied.has(m.id)) continue;
-    await db.batch([
-      ...m.statements.map((s) => db.prepare(s)),
-      db.prepare("INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)").bind(m.id, new Date().toISOString()),
-    ]);
+    try {
+      await db.batch([
+        ...m.statements.map((s) => db.prepare(s)),
+        db.prepare("INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)").bind(m.id, new Date().toISOString()),
+      ]);
+    } catch (e) {
+      // Otro isolate pudo aplicarla a la vez (la nuestra chocó y se revirtió): si ya quedó aplicada, se sigue.
+      if (!(await db.prepare("SELECT 1 FROM schema_migrations WHERE id = ?").bind(m.id).first())) throw e;
+    }
   }
 }

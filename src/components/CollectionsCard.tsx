@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CloudUpload, Download, ExternalLink, FileCheck2, FileText, MessageCircle, Plus, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
@@ -7,8 +8,9 @@ import type { Client, Collection, CollectionStatus } from "../../shared/types";
 import { Pill } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiSend } from "@/lib/api";
-import { errorMessage, formatDate } from "@/lib/labels";
+import { errorMessage, formatDate, revertTotalLabel } from "@/lib/labels";
 import { getPortalUrl } from "@/lib/quote-actions";
 import { useDocPdf } from "@/pdf/documents";
 
@@ -37,14 +39,22 @@ export function CollectionsCard({
 }) {
   const qc = useQueryClient();
   const pdf = useDocPdf();
+  const [voiding, setVoiding] = useState<Collection | null>(null);
+  const [revertTotal, setRevertTotal] = useState(true);
   const voidIt = useMutation({
-    mutationFn: (c: Collection) => apiSend("POST", `/api/admin/collections/${c.id}/void`, {}),
+    mutationFn: (c: Collection) => apiSend("POST", `/api/admin/collections/${c.id}/void`, { revertTotal: c.totalDelta > 0 && revertTotal }),
     onSuccess: () => {
-      for (const key of [["collections", projectId], ["payments", projectId], ["pending"], ["project", projectId]]) qc.invalidateQueries({ queryKey: key });
+      for (const key of [["collections", projectId], ["payments", projectId], ["pending"], ["project", projectId], ["invoices", projectId]]) qc.invalidateQueries({ queryKey: key });
       toast.success("Cuenta de cobro anulada");
+      setVoiding(null);
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
+  const askVoid = (c: Collection) => {
+    setRevertTotal(true);
+    setVoiding(c);
+  };
+  const revertLabel = voiding ? revertTotalLabel(voiding) : null;
   const open = async (c: Collection) => {
     const tab = window.open("about:blank", "_blank");
     const url = await getPortalUrl(client.id);
@@ -112,7 +122,7 @@ export function CollectionsCard({
                       size="sm"
                       variant="ghost"
                       disabled={voidIt.isPending}
-                      onClick={() => confirm(`¿Anular ${c.number}? Seguirá existiendo, marcada como anulada.`) && voidIt.mutate(c)}
+                      onClick={() => askVoid(c)}
                     >
                       <X className="h-4 w-4" /> Anular
                     </Button>
@@ -125,6 +135,31 @@ export function CollectionsCard({
           <p className="py-2 text-sm text-muted-foreground">Arma la cuenta con una promesa, el saldo o ítems del catálogo y emítela: el cliente la ve en su portal.</p>
         )}
       </CardContent>
+      <Dialog open={!!voiding} onOpenChange={(o) => !o && !voidIt.isPending && setVoiding(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Anular {voiding?.number}?</DialogTitle>
+            <DialogDescription>Seguirá existiendo, marcada como anulada.</DialogDescription>
+          </DialogHeader>
+          {revertLabel && (
+            <label htmlFor="cc-revert" className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm">
+              <input id="cc-revert" type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--sd-blue)]" checked={revertTotal} onChange={(e) => setRevertTotal(e.target.checked)} />
+              <span className="min-w-0">
+                {revertLabel}
+                <span className="block text-xs text-muted-foreground">Esta cuenta lo sumó al emitirla.</span>
+              </span>
+            </label>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" disabled={voidIt.isPending} onClick={() => setVoiding(null)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" disabled={voidIt.isPending} onClick={() => voiding && voidIt.mutate(voiding)}>
+              Anular
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

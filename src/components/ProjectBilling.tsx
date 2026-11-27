@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { ChangeRequest, Client, Collection, Invoice, PaymentSummary, Project, Quote } from "../../shared/types";
@@ -8,6 +8,8 @@ import { PaymentDialog, type PaymentTarget } from "@/components/PaymentDialog";
 import { PaymentsCard } from "@/components/PaymentsCard";
 import { ReceiptsCard } from "@/components/ReceiptsCard";
 import { apiGet } from "@/lib/api";
+import { editorDataError } from "@/lib/doc-lines";
+import { errorMessage } from "@/lib/labels";
 import { useSettingsQuery } from "@/lib/useSettings";
 import { useDriveAutoSave } from "@/pdf/documents";
 
@@ -30,6 +32,14 @@ export function ProjectBilling({ project, client, lastReminders }: { project: Pr
   const list = collections.data?.collections ?? [];
   const receipts = invoices.data?.invoices ?? [];
   const ready = payments.data && collections.data && invoices.data && changes.data && (!project.quoteId || quote.data);
+  // Si falla algo que el editor necesita (la cotización, los cambios…), se avisa en vez de no abrir nada.
+  const failed = editorDataError([payments, collections, invoices, changes, ...(project.quoteId ? [quote] : [])]);
+  useEffect(() => {
+    if (editor && !ready && failed) {
+      toast.error(`No se pudo abrir el editor: ${errorMessage(failed)}`);
+      setEditor(null);
+    }
+  }, [editor, ready, failed]);
 
   const issued = (doc: Collection | Invoice) => {
     for (const key of [["collections", id], ["invoices", id], ["payments", id], ["project", id], ["pending"]]) qc.invalidateQueries({ queryKey: key });

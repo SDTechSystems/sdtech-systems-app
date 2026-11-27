@@ -6,6 +6,7 @@ import { priceLines } from "../collections/lines";
 import { renameLater, voidedName } from "../google/drive";
 import { listCollections, loadCollection, openCollectionOfPlan, type CollectionSnapshot } from "../collections/repo";
 import { error, json, now, readJson } from "../http";
+import { loadPayments } from "../payments/repo";
 import { formatNumber, getSettings, nextNumber } from "../settings";
 
 /** Trabajo nuevo: lo único que «Sumar al total del proyecto» agrega. */
@@ -65,6 +66,15 @@ export const handleProjectCollections: Handler = async (request, env, session, p
   const total = sum(lines);
   if (total <= 0) return error(400, "invalid_amount");
 
+  // «Tiene total» es lo mismo que en el panel: base más cambios aprobados mayor que 0. Sin total, «Usar este valor como
+  // total» pone la base; con total, «Sumar al total» le suma el trabajo nuevo (una base vacía cuenta como 0).
+  const hasTotal = (await loadPayments(db, projectId)).total > 0;
+  const before = project.total;
+  const adds = hasTotal && body.addToTotal === true && sum(newWork) > 0;
+  const after = !hasTotal ? (body.setTotal === true ? total : before) : adds ? (before ?? 0) + sum(newWork) : before;
+  const totalDelta = after === before ? 0 : Math.max(0, (after ?? 0) - (before ?? 0));
+  const fromNull = before === null && after !== null;
+
   const settings = await getSettings(db);
   const currency: Currency = project.currency ?? "COP";
   const client = await db.prepare("SELECT name, company, document, city, phone, email FROM clients WHERE id = ?").bind(project.client_id).first<CollectionSnapshot["client"]>();
@@ -80,6 +90,8 @@ export const handleProjectCollections: Handler = async (request, env, session, p
     paymentUrl,
     note: typeof body.note === "string" ? body.note.trim() || null : null,
     projectTitle: project.title,
+    // Lo sumado al total sale en el recibo como línea propia.
+    addedLines: adds ? newWork : [],
   };
 
   const id = crypto.randomUUID();
@@ -95,14 +107,14 @@ export const handleProjectCollections: Handler = async (request, env, session, p
   }
   stmts.push(
     db
-      .prepare("INSERT INTO collections (id, number, project_id, client_id, issued_at, currency, total, due_date, own_plan_id, snapshot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .bind(id, number, projectId, project.client_id, t, currency, total, dueDate, ownPlanId, JSON.stringify(snapshot), t),
+      .prepare(
+        "INSERT INTO collections (id, number, project_id, client_id, issued_at, currency, total, due_date, own_plan_id, snapshot, created_at, total_delta, total_from_null) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .bind(id, number, projectId, project.client_id, t, currency, total, dueDate, ownPlanId, JSON.stringify(snapshot), t, totalDelta, fromNull ? 1 : 0),
     ...planIds.map((planId) => db.prepare("INSERT INTO collection_plans (collection_id, plan_id) VALUES (?, ?)").bind(id, planId)),
     logActivity(db, session.email, "project", projectId, "collection_issued", { number, total }),
   );
 
-  const before = project.total;
-  const after = body.setTotal === true && before === null ? total : body.addToTotal === true && before !== null ? before + sum(newWork) : before;
   if (after !== before) {
     stmts.push(
       db.prepare("UPDATE projects SET total = ?, currency = ?, updated_at = ? WHERE id = ?").bind(after, currency, t, projectId),
@@ -123,7 +135,7 @@ export const handleCollections: Handler = async (request, env, session, path, ct
   if (!c) return error(404, "not_found");
   if (request.method === "GET" && !path[2]) return json({ collection: c });
   if (request.method !== "POST" || path[2] !== "void") return error(405, "method_not_allowed");
-  const body = await readJson<object>(request);
+  const body = await readJson<{ revertTotal?: boolean }>(request);
   if (body instanceof Response) return body;
   if (c.status === "voided") return json({ collection: c });
   const own = await db
@@ -133,16 +145,35 @@ export const handleCollections: Handler = async (request, env, session, path, ct
   // La promesa propia se cancela solo si no tiene pagos ni se marcó pagada a mano.
   const unpaid = !!own && !own.paid_at && !own.has_payments;
   const ownPlanId = own?.id ?? null;
-  await db.batch([
-    db.prepare("UPDATE collections SET voided_at = ? WHERE id = ?").bind(now(), id),
+  const t = now();
+  const stmts: D1PreparedStatement[] = [
+    db.prepare("UPDATE collections SET voided_at = COALESCE(voided_at, ?) WHERE id = ?").bind(t, id),
     ...(unpaid
       ? [
           db.prepare("DELETE FROM collection_plans WHERE collection_id = ? AND plan_id = ?").bind(id, ownPlanId),
           db.prepare("DELETE FROM payment_plans WHERE id = ?").bind(ownPlanId),
         ]
       : []),
-    logActivity(db, session.email, "project", c.projectId, "collection_voided", { number: c.number, promiseDeleted: unpaid }),
-  ]);
+  ];
+  // Si Juan lo pide, se resta del total base lo que la cuenta le sumó (nunca por debajo de 0); si la base estaba vacía
+  // y queda en 0, vuelve a quedar sin total.
+  let totalReverted = false;
+  if (body.revertTotal === true && c.totalDelta > 0) {
+    const row = await db.prepare("SELECT p.total, c.total_from_null FROM collections c JOIN projects p ON p.id = c.project_id WHERE c.id = ?").bind(id).first<{ total: number | null; total_from_null: number }>();
+    const before = row?.total ?? null;
+    if (before !== null) {
+      const rest = Math.max(0, before - c.totalDelta);
+      const after = row!.total_from_null && rest === 0 ? null : rest;
+      stmts.push(
+        // Solo si el total sigue siendo el que se leyó (dos anulaciones a la vez no restan dos veces).
+        db.prepare("UPDATE projects SET total = ?, updated_at = ? WHERE id = ? AND total IS ?").bind(after, t, c.projectId, before),
+        logActivity(db, session.email, "project", c.projectId, "collection_total", { number: c.number, before, after }),
+      );
+      totalReverted = true;
+    }
+  }
+  stmts.push(logActivity(db, session.email, "project", c.projectId, "collection_voided", { number: c.number, promiseDeleted: unpaid, totalReverted }));
+  await db.batch(stmts);
   await renameLater(env, ctx, c.driveFileId, voidedName(c.number));
   return json({ collection: await loadCollection(db, "id", id) });
 };

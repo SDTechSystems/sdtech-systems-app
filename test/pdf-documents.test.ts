@@ -34,6 +34,8 @@ const collection = {
   client,
   methods: [],
   driveFileId: null,
+  addedLines: [],
+  totalDelta: 0,
 } as Collection;
 const receipt = {
   id: "inv1",
